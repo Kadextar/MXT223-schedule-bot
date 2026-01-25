@@ -126,8 +126,9 @@ def get_today_schedule():
     lessons = SCHEDULE.get(weekday, [])
 
     return [
-        lesson for lesson in lessons
-        if week in lesson["weeks"]
+    lesson for lesson in lessons
+    if week in lesson["weeks"]
+]
 
 def format_today_schedule():
     lessons = get_today_schedule()
@@ -157,7 +158,6 @@ def format_today_schedule():
         )
 
     return "\n".join(lines)
-    ]
 
 # ======================
 # KEYBOARD
@@ -191,8 +191,8 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
 
     if text == "📅 Сегодня":
-    message = format_today_schedule()
-    await update.message.reply_text(message)
+        message = format_today_schedule()
+        await update.message.reply_text(message)
 
     elif text == "📘 Лекция":
         await update.message.reply_text(
