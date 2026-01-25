@@ -126,8 +126,8 @@ def get_today_schedule():
     lessons = SCHEDULE.get(weekday, [])
 
     return [
-    lesson for lesson in lessons
-    if week in lesson["weeks"]
+        lesson for lesson in lessons
+        if week in lesson["weeks"]
 ]
 
 def format_today_schedule():
