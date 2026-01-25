@@ -14,6 +14,8 @@ from telegram.ext import (
 # CONFIG
 # ======================
 
+LAST_MESSAGES = {}
+
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 if not BOT_TOKEN:
     raise RuntimeError("BOT_TOKEN is not set")
@@ -179,6 +181,11 @@ async def send_pair_reminder(context: ContextTypes.DEFAULT_TYPE):
     )
 
 def schedule_today_reminders(app: Application):
+    # чистим старые напоминания
+    for job in app.job_queue.jobs():
+        if job.callback == send_pair_reminder:
+            job.schedule_removal()
+
     today = datetime.date.today()
     lessons = get_today_schedule()
 
@@ -190,7 +197,6 @@ def schedule_today_reminders(app: Application):
         lesson_datetime = datetime.datetime.combine(today, pair_time)
         reminder_time = lesson_datetime - datetime.timedelta(minutes=15)
 
-        # если время уже прошло — не ставим
         if reminder_time <= datetime.datetime.now():
             continue
 
@@ -259,7 +265,16 @@ async def send_morning_schedule(context: ContextTypes.DEFAULT_TYPE):
     )
 
     for chat_id in ALL_SUBJECT_CHATS:
-        await context.bot.send_message(chat_id=chat_id, text=text)
+        # удаляем прошлое сообщение бота
+        last_id = LAST_MESSAGES.get(chat_id)
+        if last_id:
+            try:
+                await context.bot.delete_message(chat_id=chat_id, message_id=last_id)
+            except:
+                pass
+
+        msg = await context.bot.send_message(chat_id=chat_id, text=text)
+        LAST_MESSAGES[chat_id] = msg.message_id
 
 async def send_evening_schedule(context: ContextTypes.DEFAULT_TYPE):
     text = (
@@ -278,11 +293,9 @@ async def send_evening_schedule(context: ContextTypes.DEFAULT_TYPE):
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
 
-    # handlers
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_buttons))
 
-    # jobs (ПН–ПТ)
     app.job_queue.run_daily(
         send_morning_schedule,
         time=datetime.time(hour=6, minute=0),
