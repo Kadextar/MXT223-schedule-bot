@@ -159,6 +159,47 @@ def format_today_schedule():
 
     return "\n".join(lines)
 
+async def send_pair_reminder(context: ContextTypes.DEFAULT_TYPE):
+    lesson = context.job.data
+
+    lesson_type = "Лекция" if lesson["type"] == "lecture" else "Семинар"
+
+    text = (
+        "⏰ Напоминание!\n"
+        "Через 15 минут начинается пара\n\n"
+        f"📘 {lesson['subject']}\n"
+        f"🎓 {lesson_type}\n"
+        f"👩‍🏫 {lesson['teacher']}\n"
+        f"🏫 {lesson['room']}"
+    )
+
+    await context.bot.send_message(
+        chat_id=lesson["chat_id"],
+        text=text
+    )
+
+def schedule_today_reminders(app: Application):
+    today = datetime.date.today()
+    lessons = get_today_schedule()
+
+    for lesson in lessons:
+        pair_time = PAIR_START_TIMES.get(lesson["pair"])
+        if not pair_time:
+            continue
+
+        lesson_datetime = datetime.datetime.combine(today, pair_time)
+        reminder_time = lesson_datetime - datetime.timedelta(minutes=15)
+
+        # если время уже прошло — не ставим
+        if reminder_time <= datetime.datetime.now():
+            continue
+
+        app.job_queue.run_once(
+            send_pair_reminder,
+            when=reminder_time,
+            data=lesson
+        )
+
 # ======================
 # KEYBOARD
 # ======================
@@ -251,6 +292,16 @@ def main():
     app.job_queue.run_daily(
         send_evening_schedule,
         time=datetime.time(hour=20, minute=0),
+        days=(0, 1, 2, 3, 4),
+    )
+
+    # планируем напоминания на сегодня при запуске
+    schedule_today_reminders(app)
+
+    # и каждый день в 07:00 пересобираем напоминания
+    app.job_queue.run_daily(
+        lambda ctx: schedule_today_reminders(app),
+        time=datetime.time(hour=7, minute=0),
         days=(0, 1, 2, 3, 4),
     )
 
