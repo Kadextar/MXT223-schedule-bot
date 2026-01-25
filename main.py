@@ -162,7 +162,7 @@ def format_today_schedule():
     return "\n".join(lines)
 
 def get_tomorrow_schedule():
-    tomorrow = datetime.date.today() + datetime.timedelta(days=1)
+    tomorrow = datetime.date(2026, 2, 2)
     week = get_week_number(tomorrow)
 
     weekday = tomorrow.strftime("%A").lower()
