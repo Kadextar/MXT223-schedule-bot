@@ -32,6 +32,134 @@ ALL_SUBJECT_CHATS = (
 )
 
 # ======================
+# ACADEMIC SETTINGS
+# ======================
+
+SEMESTER_START_DATE = datetime.date(2026, 2, 2)  # 4 неделя
+PAIR_START_TIMES = {
+    1: datetime.time(8, 0),
+    2: datetime.time(9, 30),
+    3: datetime.time(11, 0),
+}
+
+# ======================
+# SCHEDULE DATA
+# ======================
+
+SCHEDULE = {
+    "monday": [
+        {
+            "pair": 1,
+            "subject": "Качество и безопасность в гостиничной деятельности",
+            "type": "lecture",
+            "weeks": range(4, 9),
+            "room": "2/214",
+            "teacher": "Махмудова А.П.",
+            "chat_id": CHAT_QUALITY,
+        },
+        {
+            "pair": 1,
+            "subject": "Стратегический менеджмент в гостиничном хозяйстве",
+            "type": "lecture",
+            "weeks": range(10, 16),
+            "room": "2/214",
+            "teacher": "Усманова Н.М.",
+            "chat_id": CHAT_STRATEGY,
+        },
+        {
+            "pair": 2,
+            "subject": "Стратегический менеджмент в гостиничном хозяйстве",
+            "type": "lecture",
+            "weeks": range(4, 9),
+            "room": "2/214",
+            "teacher": "Усманова Н.М.",
+            "chat_id": CHAT_STRATEGY,
+        },
+        {
+            "pair": 2,
+            "subject": "Мировая экономика и МЭО",
+            "type": "lecture",
+            "weeks": range(10, 16),
+            "room": "2/214",
+            "teacher": "Халимов Ш.Х.",
+            "chat_id": CHAT_ECONOMY,
+        },
+    ],
+
+    "tuesday": [
+        {
+            "pair": 1,
+            "subject": "Мировая экономика и МЭО",
+            "type": "lecture",
+            "weeks": range(4, 11),
+            "room": "2/214",
+            "teacher": "Халимов Ш.Х.",
+            "chat_id": CHAT_ECONOMY,
+        },
+        {
+            "pair": 1,
+            "subject": "Мировая экономика и МЭО",
+            "type": "seminar",
+            "weeks": range(11, 16),
+            "room": "2/214",
+            "teacher": "Амриева Ш.Ш.",
+            "chat_id": CHAT_ECONOMY,
+        },
+    ],
+
+    # остальные дни добавим следующим шагом
+}
+
+# ======================
+# LOGIC FUNCTIONS
+# ======================
+
+def get_week_number(today: datetime.date) -> int:
+    delta = today - SEMESTER_START_DATE
+    return 4 + delta.days // 7
+
+def get_today_schedule():
+    today = datetime.date.today()
+    week = get_week_number(today)
+
+    weekday = today.strftime("%A").lower()
+    lessons = SCHEDULE.get(weekday, [])
+
+    return [
+        lesson for lesson in lessons
+        if week in lesson["weeks"]
+
+def format_today_schedule():
+    lessons = get_today_schedule()
+
+    if not lessons:
+        return "📅 Сегодня занятий нет 🎉"
+
+    lines = []
+    lines.append("📅 Расписание на сегодня:\n")
+
+    # сортируем по номеру пары
+    lessons = sorted(lessons, key=lambda x: x["pair"])
+
+    for lesson in lessons:
+        pair = lesson["pair"]
+        time = PAIR_START_TIMES.get(pair)
+
+        time_str = time.strftime("%H:%M") if time else "—"
+        lesson_type = "Лекция" if lesson["type"] == "lecture" else "Семинар"
+
+        lines.append(
+            f"⏰ {pair} пара ({time_str})\n"
+            f"📘 {lesson['subject']}\n"
+            f"🎓 {lesson_type}\n"
+            f"👩‍🏫 {lesson['teacher']}\n"
+            f"🏫 {lesson['room']}\n"
+        )
+
+    return "\n".join(lines)
+    ]
+
+# ======================
 # KEYBOARD
 # ======================
 
@@ -63,14 +191,8 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
 
     if text == "📅 Сегодня":
-        await update.message.reply_text(
-            "📅 Расписание на сегодня:\n\n"
-            "— Стратегический менеджмент\n"
-            "— Качество и безопасность\n"
-            "— Мировая экономика\n"
-            "— Международный гостиничный бизнес\n\n"
-            "(пока без умной логики)"
-        )
+    message = format_today_schedule()
+    await update.message.reply_text(message)
 
     elif text == "📘 Лекция":
         await update.message.reply_text(
