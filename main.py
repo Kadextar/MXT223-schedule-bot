@@ -158,6 +158,49 @@ def format_today_schedule():
             f"👩‍🏫 {lesson['teacher']}\n"
             f"🏫 {lesson['room']}\n"
         )
+        
+    return "\n".join(lines)
+
+def get_tomorrow_schedule():
+    tomorrow = datetime.date.today() + datetime.timedelta(days=1)
+    week = get_week_number(tomorrow)
+
+    weekday = tomorrow.strftime("%A").lower()
+    lessons = SCHEDULE.get(weekday, [])
+
+    return [
+        lesson for lesson in lessons
+        if week in lesson["weeks"]
+    ]
+
+def format_tomorrow_schedule():
+    lessons = get_tomorrow_schedule()
+
+    if not lessons:
+        return (
+            "🌙 Завтра занятий нет 🎉\n\n"
+            "Можно спокойно отдыхать 😌"
+        )
+
+    lines = []
+    lines.append("🌙 Расписание на завтра:\n")
+
+    lessons = sorted(lessons, key=lambda x: x["pair"])
+
+    for lesson in lessons:
+        pair = lesson["pair"]
+        time = PAIR_START_TIMES.get(pair)
+
+        time_str = time.strftime("%H:%M") if time else "—"
+        lesson_type = "Лекция" if lesson["type"] == "lecture" else "Семинар"
+
+        lines.append(
+            f"⏰ {pair} пара ({time_str})\n"
+            f"📘 {lesson['subject']}\n"
+            f"🎓 {lesson_type}\n"
+            f"👩‍🏫 {lesson['teacher']}\n"
+            f"🏫 {lesson['room']}\n"
+        )
 
     return "\n".join(lines)
 
@@ -277,11 +320,7 @@ async def send_morning_schedule(context: ContextTypes.DEFAULT_TYPE):
         LAST_MESSAGES[chat_id] = msg.message_id
 
 async def send_evening_schedule(context: ContextTypes.DEFAULT_TYPE):
-    text = (
-        "🌙 Напоминание:\n"
-        "Завтра занятия по расписанию.\n"
-        "Подробности — утром 📚"
-    )
+    text = format_tomorrow_schedule()
 
     for chat_id in ALL_SUBJECT_CHATS:
         await context.bot.send_message(chat_id=chat_id, text=text)
