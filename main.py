@@ -1,87 +1,125 @@
 import os
-from telegram import ReplyKeyboardMarkup
-from telegram.ext import MessageHandler, filters
+import datetime
+
+from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
     Application,
     CommandHandler,
+    MessageHandler,
     ContextTypes,
+    filters,
 )
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
+# =========================
+# CONFIG
+# =========================
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-GROUP_CHAT_ID = os.getenv("GROUP_CHAT_ID")  # добавим позже
 
 if not BOT_TOKEN:
     raise RuntimeError("BOT_TOKEN is not set")
 
-# ---------- КНОПКИ ----------
+# ID групп
+CHAT_STRATEGY = -1003789929485
+CHAT_QUALITY = -1003798438883
+CHAT_ECONOMY = -1003814835903
+
+# =========================
+# KEYBOARD
+# =========================
+
 keyboard = ReplyKeyboardMarkup(
     [
-        ["📅 Сегодня", "📆 Завтра"],
-        ["📚 Неделя"]
+        ["📅 Сегодня"],
+        ["📘 Лекция", "📝 Семинар"]
     ],
     resize_keyboard=True
 )
 
-# ---------- /start ----------
+# =========================
+# COMMANDS
+# =========================
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "Привет! Я бот расписания группы МХТ-223 👋\nВыбери действие:",
+        "Привет 👋\nЯ бот расписания.\nВыбери действие:",
         reply_markup=keyboard
     )
 
-# ---------- ОБРАБОТКА КНОПОК ----------
+# =========================
+# BUTTON HANDLER
+# =========================
+
 async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
 
     if text == "📅 Сегодня":
-        await update.message.reply_text("📅 Расписание на сегодня:\n(пока заглушка)")
-    elif text == "📆 Завтра":
-        await update.message.reply_text("📆 Расписание на завтра:\n(пока заглушка)")
-    elif text == "📚 Неделя":
-        await update.message.reply_text("📚 Расписание на неделю:\n(пока заглушка)")
+        await update.message.reply_text(
+            "📅 Расписание на сегодня:\n"
+            "— Стратегический менеджмент\n"
+            "— Качество и безопасность\n"
+            "— Мировая экономика"
+        )
 
-# ---------- АВТО-ОТПРАВКА ----------
-async def send_daily_schedule(context: ContextTypes.DEFAULT_TYPE):
-    if not GROUP_CHAT_ID:
-        return
+    elif text == "📘 Лекция":
+        await update.message.reply_text("📘 Сегодня лекционное занятие")
 
-    await context.bot.send_message(
-        chat_id=GROUP_CHAT_ID,
-        text="⏰ Доброе утро!\nВот расписание на сегодня 📅\n(пока заглушка)"
+    elif text == "📝 Семинар":
+        await update.message.reply_text("📝 Сегодня семинарское занятие")
+
+# =========================
+# AUTO MESSAGES (SCHEDULE)
+# =========================
+
+async def send_morning_schedule(context: ContextTypes.DEFAULT_TYPE):
+    text = (
+        "🌅 Доброе утро!\n\n"
+        "📅 Расписание на сегодня:\n"
+        "— Стратегический менеджмент\n"
+        "— Качество и безопасность\n"
+        "— Мировая экономика\n\n"
+        "Хорошего дня 💪"
     )
 
-# ---------- MAIN ----------
+    await context.bot.send_message(chat_id=CHAT_STRATEGY, text=text)
+    await context.bot.send_message(chat_id=CHAT_QUALITY, text=text)
+    await context.bot.send_message(chat_id=CHAT_ECONOMY, text=text)
+
+async def send_evening_schedule(context: ContextTypes.DEFAULT_TYPE):
+    text = (
+        "🌙 Расписание на завтра будет опубликовано утром.\n"
+        "Не забудьте подготовиться 📚"
+    )
+
+    await context.bot.send_message(chat_id=CHAT_STRATEGY, text=text)
+    await context.bot.send_message(chat_id=CHAT_QUALITY, text=text)
+    await context.bot.send_message(chat_id=CHAT_ECONOMY, text=text)
+
+# =========================
+# MAIN
+# =========================
+
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
 
+    # handlers
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("help", start))
-    app.add_handler(CommandHandler("menu", start))
-    app.add_handler(CommandHandler("today", handle_buttons))
-    app.add_handler(CommandHandler("tomorrow", handle_buttons))
-    app.add_handler(CommandHandler("week", handle_buttons))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_buttons))
 
-    app.add_handler(
-        CommandHandler("buttons", start)
-    )
-    app.add_handler(
-        telegram.ext.MessageHandler(
-            telegram.ext.filters.TEXT & ~telegram.ext.filters.COMMAND,
-            handle_buttons
-        )
+    # jobs (ПН–ПТ)
+    app.job_queue.run_daily(
+        send_morning_schedule,
+        time=datetime.time(hour=6, minute=0),
+        days=(0, 1, 2, 3, 4)
     )
 
-    scheduler = AsyncIOScheduler()
-    scheduler.add_job(
-        send_daily_schedule,
-        trigger="cron",
-        hour=7,
-        minute=30,
-        args=[app.bot],
+    app.job_queue.run_daily(
+        send_evening_schedule,
+        time=datetime.time(hour=20, minute=0),
+        days=(0, 1, 2, 3, 4)
     )
-    scheduler.start()
 
+    print("Bot started successfully")
     app.run_polling()
 
 if __name__ == "__main__":
