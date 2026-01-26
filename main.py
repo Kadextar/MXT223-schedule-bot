@@ -1,5 +1,24 @@
 import os
 import datetime
+import logging
+import json
+from pathlib import Path
+
+LAST_MESSAGES_FILE = Path(__file__).parent / "last_messages.json"
+REMINDER_SETTINGS_FILE = Path(__file__).parent / "reminder_settings.json"
+
+logging.basicConfig(
+    format="%(asctime)s | %(levelname)s | %(message)s",
+    level=logging.INFO
+)
+
+logger = logging.getLogger(__name__)
+
+from zoneinfo import ZoneInfo
+
+UZ_TZ = ZoneInfo("Asia/Tashkent")
+def today_uz():
+    return datetime.datetime.now(UZ_TZ).date()
 
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
@@ -14,7 +33,54 @@ from telegram.ext import (
 # CONFIG
 # ======================
 
-LAST_MESSAGES = {}
+def load_last_messages():
+    if LAST_MESSAGES_FILE.exists():
+        try:
+            with open(LAST_MESSAGES_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                # ключи из JSON — строки, приводим к int
+                return {int(k): v for k, v in data.items()}
+        except Exception as e:
+            logger.error(f"Failed to load last messages: {e}")
+    return {}
+
+
+def save_last_messages():
+    try:
+        with open(LAST_MESSAGES_FILE, "w", encoding="utf-8") as f:
+            json.dump(LAST_MESSAGES, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logger.error(f"Failed to save last messages: {e}")
+
+
+def load_reminder_settings():
+    if REMINDER_SETTINGS_FILE.exists():
+        try:
+            with open(REMINDER_SETTINGS_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                return {int(k): bool(v) for k, v in data.items()}
+        except Exception as e:
+            logger.error(f"Failed to load reminder settings: {e}")
+    return {}
+
+
+def save_reminder_settings():
+    try:
+        with open(REMINDER_SETTINGS_FILE, "w", encoding="utf-8") as f:
+            json.dump(REMINDER_SETTINGS, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logger.error(f"Failed to save reminder settings: {e}")
+
+
+def reminders_enabled(chat_id: int) -> bool:
+    # по умолчанию — включены
+    return REMINDER_SETTINGS.get(chat_id, True)
+
+
+
+LAST_MESSAGES = load_last_messages()
+REMINDER_SETTINGS = load_reminder_settings()
+logger.info(f"Loaded {len(LAST_MESSAGES)} last messages from file")
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 if not BOT_TOKEN:
@@ -25,17 +91,21 @@ CHAT_STRATEGY = -1003789929485
 CHAT_QUALITY = -1003798438883
 CHAT_ECONOMY = -1003814835903
 CHAT_INTL_BUSINESS = -1002982024678
+CHAT_SCHEDULE_ONLY = -5103325045
 
 ALL_SUBJECT_CHATS = (
     CHAT_STRATEGY,
     CHAT_QUALITY,
     CHAT_ECONOMY,
     CHAT_INTL_BUSINESS,
+    CHAT_SCHEDULE_ONLY,
 )
 
 # ======================
 # ACADEMIC SETTINGS
 # ======================
+
+REMINDER_MINUTES = [30, 15, 5]
 
 SEMESTER_START_DATE = datetime.date(2026, 2, 2)  # 4 неделя
 PAIR_START_TIMES = {
@@ -281,7 +351,7 @@ def get_week_number(today: datetime.date) -> int:
     return 4 + delta.days // 7
 
 def get_today_schedule():
-    today = datetime.date.today()
+    today = today_uz()
     week = get_week_number(today)
 
     weekday = today.strftime("%A").lower()
@@ -317,12 +387,13 @@ def format_today_schedule():
             f"🎓 {lesson_type}\n"
             f"👩‍🏫 {lesson['teacher']}\n"
             f"🏫 {lesson['room']}\n"
+            "——————————————\n"
         )
         
     return "\n".join(lines)
 
 def get_tomorrow_schedule():
-    tomorrow = datetime.date.today() + datetime.timedelta(days=1)
+    tomorrow = today_uz() + datetime.timedelta(days=1)
     week = get_week_number(tomorrow)
 
     weekday = tomorrow.strftime("%A").lower()
@@ -365,31 +436,47 @@ def format_tomorrow_schedule():
     return "\n".join(lines)
 
 async def send_pair_reminder(context: ContextTypes.DEFAULT_TYPE):
-    lesson = context.job.data
+    lesson = context.job.data["lesson"]
+    minutes = context.job.data["minutes"]
+
+    chat_id = lesson["chat_id"]
+
+    subject_enabled = reminders_enabled(chat_id)
+    schedule_enabled = reminders_enabled(CHAT_SCHEDULE_ONLY)
+
+    if not subject_enabled and not schedule_enabled:
+        logger.info("Reminders disabled everywhere, skipping")
+        return
 
     lesson_type = "Лекция" if lesson["type"] == "lecture" else "Семинар"
+    emoji = "🕒" if minutes == 30 else "⏰" if minutes == 15 else "🚨"
 
     text = (
-        "⏰ Напоминание!\n"
-        "Через 15 минут начинается пара\n\n"
+        f"{emoji} До пары осталось {minutes} минут!\n\n"
         f"📘 {lesson['subject']}\n"
         f"🎓 {lesson_type}\n"
         f"👩‍🏫 {lesson['teacher']}\n"
         f"🏫 {lesson['room']}"
     )
 
-    await context.bot.send_message(
-        chat_id=lesson["chat_id"],
-        text=text
-    )
+    # предметный чат
+    if subject_enabled:
+        await context.bot.send_message(chat_id=chat_id, text=text)
 
+    # общий чат расписаний
+    if chat_id != CHAT_SCHEDULE_ONLY and schedule_enabled:
+        await context.bot.send_message(chat_id=CHAT_SCHEDULE_ONLY, text=text)
+        
 def schedule_today_reminders(app: Application):
-    # чистим старые напоминания
+    today = today_uz()
+    if today < SEMESTER_START_DATE:
+        return
+
+    # удаляем старые напоминания
     for job in app.job_queue.jobs():
         if job.callback == send_pair_reminder:
             job.schedule_removal()
 
-    today = datetime.date.today()
     lessons = get_today_schedule()
 
     for lesson in lessons:
@@ -397,21 +484,54 @@ def schedule_today_reminders(app: Application):
         if not pair_time:
             continue
 
-        lesson_datetime = datetime.datetime.combine(today, pair_time)
-        reminder_time = lesson_datetime - datetime.timedelta(minutes=15)
-
-        if reminder_time <= datetime.datetime.now():
-            continue
-
-        app.job_queue.run_once(
-            send_pair_reminder,
-            when=reminder_time,
-            data=lesson
+        lesson_datetime = datetime.datetime.combine(
+            today,
+            pair_time,
+            tzinfo=UZ_TZ
         )
+
+        for minutes in REMINDER_MINUTES:
+            reminder_time = lesson_datetime - datetime.timedelta(minutes=minutes)
+
+            if reminder_time <= datetime.datetime.now(UZ_TZ):
+                continue
+
+            logger.info(
+                f"Reminder scheduled: {lesson['subject']} | {minutes} min | {reminder_time}"
+            )
+
+            app.job_queue.run_once(
+                send_pair_reminder,
+                when=reminder_time,
+                data={
+                    "lesson": lesson,
+                    "minutes": minutes
+                }
+            )
 
 # ======================
 # KEYBOARD
 # ======================
+
+async def today_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if today_uz() < SEMESTER_START_DATE:
+        await update.message.reply_text(
+            "📅 Учебный семестр начинается с 2 февраля.\n"
+            "Пока занятий нет 😌"
+        )
+        return
+
+    await update.message.reply_text(format_today_schedule())
+
+async def tomorrow_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if today_uz() < SEMESTER_START_DATE:
+        await update.message.reply_text(
+            "🌙 Занятия начнутся с 2 февраля.\n"
+            "Пока можно отдыхать 😌"
+        )
+        return
+
+    await update.message.reply_text(format_tomorrow_schedule())
 
 keyboard = ReplyKeyboardMarkup(
     [
@@ -433,12 +553,49 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=keyboard
     )
 
+async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    jobs_count = len(context.application.job_queue.jobs())
+
+    await update.message.reply_text(
+        "🤖 Статус бота\n\n"
+        f"📅 Сегодня: {today_uz()}\n"
+        f"🎓 Семестр начался: {'✅' if today_uz() >= SEMESTER_START_DATE else '❌'}\n"
+        f"⏰ Активных задач: {jobs_count}"
+    )
+
+async def enable_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+
+    REMINDER_SETTINGS[chat_id] = True
+    save_reminder_settings()
+
+    await update.message.reply_text(
+        "🔔 Напоминания включены для этого чата ✅"
+    )
+
+async def disable_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+
+    REMINDER_SETTINGS[chat_id] = False
+    save_reminder_settings()
+
+    await update.message.reply_text(
+        "🔕 Напоминания отключены для этого чата ❌"
+    )
+
 # ======================
 # BUTTON HANDLER
 # ======================
 
 async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
+
+    if today_uz() < SEMESTER_START_DATE:
+        await update.message.reply_text(
+            "📅 Учебный семестр начинается с 2 февраля.\n"
+            "Пока занятий нет 😌"
+        )
+        return
 
     if text == "📅 Сегодня":
         message = format_today_schedule()
@@ -461,6 +618,10 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ======================
 
 async def send_morning_schedule(context: ContextTypes.DEFAULT_TYPE):
+    today = today_uz()
+    if today < SEMESTER_START_DATE:
+        return
+    
     text = (
         "🌅 Доброе утро!\n\n"
         "📅 Сегодня учебный день.\n"
@@ -478,8 +639,14 @@ async def send_morning_schedule(context: ContextTypes.DEFAULT_TYPE):
 
         msg = await context.bot.send_message(chat_id=chat_id, text=text)
         LAST_MESSAGES[chat_id] = msg.message_id
+        
+    save_last_messages()
 
 async def send_evening_schedule(context: ContextTypes.DEFAULT_TYPE):
+    today = today_uz()
+    if today < SEMESTER_START_DATE:
+        return
+    
     text = format_tomorrow_schedule()
 
     for chat_id in ALL_SUBJECT_CHATS:
@@ -490,11 +657,21 @@ async def send_evening_schedule(context: ContextTypes.DEFAULT_TYPE):
 # ======================
 
 def main():
-    app = Application.builder().token(BOT_TOKEN).build()
+    app = (
+        Application.builder()
+        .token(BOT_TOKEN)
+        .timezone(UZ_TZ)
+        .build()
+    )
 
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("today", today_command))
+    app.add_handler(CommandHandler("tomorrow", tomorrow_command))
+    app.add_handler(CommandHandler("status", status_command))
+    app.add_handler(CommandHandler("enable", enable_command))
+    app.add_handler(CommandHandler("disable", disable_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_buttons))
-
+    
     app.job_queue.run_daily(
         send_morning_schedule,
         time=datetime.time(hour=6, minute=0),
@@ -508,8 +685,9 @@ def main():
     )
 
     # планируем напоминания на сегодня при запуске
-    schedule_today_reminders(app)
-
+    if today_uz() >= SEMESTER_START_DATE:
+        schedule_today_reminders(app)
+    
     # и каждый день в 07:00 пересобираем напоминания
     app.job_queue.run_daily(
         lambda ctx: schedule_today_reminders(app),
@@ -517,7 +695,8 @@ def main():
         days=(0, 1, 2, 3, 4),
     )
 
-    print("Bot started successfully")
+    logger.info("Bot started successfully")
+    logger.info("Daily reminders scheduler initialized")
     app.run_polling()
 
 if __name__ == "__main__":
