@@ -5,6 +5,8 @@ from core.schedule_service import (
     format_today_schedule,
     format_tomorrow_schedule,
 )
+from core.analytics.workload import format_workload_chart
+from core.analytics import analyze_week_load
 from core.time_utils import today_uz
 from core.config import SEMESTER_START_DATE
 from core.ui.keyboards import MAIN_KEYBOARD
@@ -60,6 +62,37 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif text == "🌙 Завтра":
         await update.message.reply_text(format_tomorrow_schedule())
 
+    elif text == "📊 Нагрузка недели":
+        await update.message.reply_text(
+            format_workload_chart()
+        )
+
+    elif text == "📊 Нагрузка недели":
+        data = analyze_week_load()
+
+        day_names = {
+            "monday": "Пн",
+            "tuesday": "Вт",
+            "wednesday": "Ср",
+            "thursday": "Чт",
+            "friday": "Пт",
+        }
+
+        days_text = "\n".join(
+            f"• {day_names.get(day, day)} — {hours} ч"
+            for day, hours in data["day_load"].items()
+        )
+
+        await update.message.reply_text(
+            f"📊 Нагрузка недели ({data['week']} неделя)\n\n"
+            f"📘 Лекций: {data['lectures']}\n"
+            f"📒 Семинаров: {data['seminars']}\n"
+            f"⏰ Учебных часов: {data['total_hours']}\n\n"
+            f"🔥 Самый загруженный день: {day_names.get(data['hardest_day'], '—')}\n"
+            f"😌 Самый лёгкий день: {day_names.get(data['easiest_day'], '—')}\n\n"
+            f"📅 По дням:\n{days_text}"
+        )
+
     # ⏭ Следующая пара
     elif text == "⏭ Следующая пара":
         lesson = get_next_lesson()
@@ -106,4 +139,3 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Используй кнопки ниже 👇",
             reply_markup=MAIN_KEYBOARD,
         )
-
