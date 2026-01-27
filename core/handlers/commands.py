@@ -4,12 +4,15 @@ import time
 import datetime
 from core.time_utils import UZ_TZ, today_uz
 
+from core.analytics import analyze_week_load
 from core.time_utils import today_uz
 from core.config import SEMESTER_START_DATE
-from core.ui.keyboards import MAIN_KEYBOARD
+
 
 LAST_STATUS_CALL = {}
 
+
+from core.ui.keyboards import MAIN_KEYBOARD
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
@@ -53,3 +56,31 @@ async def health(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"📚 Семестр начался: {'✅' if today >= SEMESTER_START_DATE else '❌'}\n"
         f"⏰ Активных задач: {len(context.application.job_queue.jobs())}"
     )
+
+async def load(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    data = analyze_week_load()
+
+    day_names = {
+        "monday": "Пн",
+        "tuesday": "Вт",
+        "wednesday": "Ср",
+        "thursday": "Чт",
+        "friday": "Пт",
+    }
+
+    days_text = "\n".join(
+        f"• {day_names.get(day, day)} — {hours} ч"
+        for day, hours in data["day_load"].items()
+    )
+
+    text = (
+        f"📊 Нагрузка недели ({data['week']} неделя)\n\n"
+        f"📘 Лекций: {data['lectures']}\n"
+        f"📒 Семинаров: {data['seminars']}\n"
+        f"⏰ Учебных часов: {data['total_hours']}\n\n"
+        f"🔥 Самый загруженный день: {day_names.get(data['hardest_day'], '—')}\n"
+        f"😌 Самый лёгкий день: {day_names.get(data['easiest_day'], '—')}\n\n"
+        f"📅 По дням:\n{days_text}"
+    )
+
+    await update.message.reply_text(text)
