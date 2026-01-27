@@ -478,7 +478,10 @@ async def send_pair_reminder(context: ContextTypes.DEFAULT_TYPE):
     # общий чат расписаний
     if chat_id != CHAT_SCHEDULE_ONLY and schedule_enabled:
         await context.bot.send_message(chat_id=CHAT_SCHEDULE_ONLY, text=text)
-        
+
+def daily_rebuild_reminders(context: ContextTypes.DEFAULT_TYPE):
+    schedule_today_reminders(context.application)
+
 def schedule_today_reminders(app: Application):
     today = today_uz()
     if today < SEMESTER_START_DATE:
@@ -702,7 +705,7 @@ def main():
     
     # и каждый день в 20:00 пересобираем напоминания
     app.job_queue.run_daily(
-        lambda ctx: schedule_today_reminders(app),
+        daily_rebuild_reminders,
         time=uz_time_to_utc(20, 0),
         days=(0, 1, 2, 3, 4),
     )
