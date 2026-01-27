@@ -5,7 +5,8 @@ from core.schedule_service import (
     format_today_schedule,
     format_tomorrow_schedule,
 )
-from core.analytics.workload import format_workload_chart
+
+from core.analytics.workload_chart import format_workload_chart
 from core.analytics import analyze_week_load
 from core.time_utils import today_uz
 from core.config import SEMESTER_START_DATE
