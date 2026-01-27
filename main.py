@@ -451,79 +451,82 @@ def format_tomorrow_schedule():
     return "\n".join(lines)
 
 async def send_pair_reminder(context: ContextTypes.DEFAULT_TYPE):
-    lesson = context.job.data["lesson"]
-    minutes = context.job.data["minutes"]
+    try:
+        lesson = context.job.data["lesson"]
+        minutes = context.job.data["minutes"]
 
-    chat_id = lesson["chat_id"]
+        chat_id = lesson["chat_id"]
 
-    subject_enabled = reminders_enabled(chat_id)
-    schedule_enabled = reminders_enabled(CHAT_SCHEDULE_ONLY)
+        subject_enabled = reminders_enabled(chat_id)
+        schedule_enabled = reminders_enabled(CHAT_SCHEDULE_ONLY)
 
-    if not subject_enabled and not schedule_enabled:
-        logger.info("Reminders disabled everywhere, skipping")
-        return
+        if not subject_enabled and not schedule_enabled:
+            return
 
-    lesson_type = "Лекция" if lesson["type"] == "lecture" else "Семинар"
-    emoji = "🕒" if minutes == 30 else "⏰" if minutes == 15 else "🚨"
+        lesson_type = "Лекция" if lesson["type"] == "lecture" else "Семинар"
+        emoji = "🕒" if minutes == 30 else "⏰" if minutes == 15 else "🚨"
 
-    text = (
-        f"{emoji} До пары осталось {minutes} минут!\n\n"
-        f"📘 {lesson['subject']}\n"
-        f"🎓 {lesson_type}\n"
-        f"👩‍🏫 {lesson['teacher']}\n"
-        f"🏫 {lesson['room']}"
-    )
+        text = (
+            f"{emoji} До пары осталось {minutes} минут!\n\n"
+            f"📘 {lesson['subject']}\n"
+            f"🎓 {lesson_type}\n"
+            f"👩‍🏫 {lesson['teacher']}\n"
+            f"🏫 {lesson['room']}"
+        )
 
-    # предметный чат
-    if subject_enabled:
-        await context.bot.send_message(chat_id=chat_id, text=text)
+        if subject_enabled:
+            await context.bot.send_message(chat_id=chat_id, text=text)
 
-    # общий чат расписаний
-    if chat_id != CHAT_SCHEDULE_ONLY and schedule_enabled:
-        await context.bot.send_message(chat_id=CHAT_SCHEDULE_ONLY, text=text)
+        if chat_id != CHAT_SCHEDULE_ONLY and schedule_enabled:
+            await context.bot.send_message(chat_id=CHAT_SCHEDULE_ONLY, text=text)
+
+    except Exception:
+        logger.exception("❌ Failed to send pair reminder")
 
 def daily_rebuild_reminders(context: ContextTypes.DEFAULT_TYPE):
     schedule_today_reminders(context.application)
 
 def schedule_today_reminders(app: Application):
-    today = today_uz()
-    if today < SEMESTER_START_DATE:
-        return
+    try:
+        today = today_uz()
+        if today < SEMESTER_START_DATE:
+            return
 
-    # удаляем старые напоминания
-    for job in app.job_queue.jobs():
-        if job.callback == send_pair_reminder:
-            job.schedule_removal()
+        # удаляем старые напоминания
+        for job in app.job_queue.jobs():
+            if job.callback == send_pair_reminder:
+                job.schedule_removal()
 
-    lessons = get_today_schedule()
+        lessons = get_today_schedule()
 
-    for lesson in lessons:
-        pair_time = PAIR_START_TIMES.get(lesson["pair"])
-        if not pair_time:
-            continue
-
-        lesson_datetime = UZ_TZ.localize(
-            datetime.datetime.combine(today, pair_time)
-        )
-
-        for minutes in REMINDER_MINUTES:
-            reminder_time = lesson_datetime - datetime.timedelta(minutes=minutes)
-
-            if reminder_time <= datetime.datetime.now(UZ_TZ):
+        for lesson in lessons:
+            pair_time = PAIR_START_TIMES.get(lesson["pair"])
+            if not pair_time:
                 continue
 
-            logger.info(
-                f"Reminder scheduled: {lesson['subject']} | {minutes} min | {reminder_time}"
+            lesson_datetime = UZ_TZ.localize(
+                datetime.datetime.combine(today, pair_time)
             )
 
-            app.job_queue.run_once(
-                send_pair_reminder,
-                when=reminder_time,
-                data={
-                    "lesson": lesson,
-                    "minutes": minutes
-                }
-            )
+            for minutes in REMINDER_MINUTES:
+                reminder_time = lesson_datetime - datetime.timedelta(minutes=minutes)
+
+                if reminder_time <= datetime.datetime.now(UZ_TZ):
+                    continue
+
+                app.job_queue.run_once(
+                    send_pair_reminder,
+                    when=reminder_time,
+                    data={
+                        "lesson": lesson,
+                        "minutes": minutes
+                    }
+                )
+
+        logger.info("Daily reminders scheduled successfully")
+
+    except Exception as e:
+        logger.exception("❌ Error while scheduling daily reminders")
 
 # ======================
 # KEYBOARD
@@ -708,8 +711,12 @@ def main():
         schedule_today_reminders(app)
 
     # 🔧 ВАЖНО: функция должна быть С ОТСТУПОМ
-    def rebuild_daily_reminders(context):
-        schedule_today_reminders(context.application)
+    def rebuild_daily_reminders(context: ContextTypes.DEFAULT_TYPE):
+        try:
+            schedule_today_reminders(context.application)
+            logger.info("Daily reminders rebuilt")
+        except Exception:
+            logger.exception("❌ Failed to rebuild daily reminders")
 
     # пересбор напоминаний каждый день в 20:00
     app.job_queue.run_daily(
