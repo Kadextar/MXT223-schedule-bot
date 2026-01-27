@@ -51,7 +51,7 @@ def main():
     app.job_queue.run_daily(
         rebuild_daily_reminders,
         time=uz_time_to_utc(20, 0),
-        days=WEEKDAYS,
+        days=(0, 1, 2, 3, 4),
     )
 
     logger.info("🚀 Bot started")
