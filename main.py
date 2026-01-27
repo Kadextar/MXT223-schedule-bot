@@ -660,7 +660,6 @@ def main():
     app = (
         Application.builder()
         .token(BOT_TOKEN)
-        .timezone(UZ_TZ)
         .build()
     )
 
