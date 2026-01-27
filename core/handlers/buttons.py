@@ -64,11 +64,7 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(format_tomorrow_schedule())
 
     elif text == "📊 Нагрузка недели":
-        await update.message.reply_text(
-            format_workload_chart()
-        )
-
-    elif text == "📊 Нагрузка недели":
+        chart = format_workload_chart()
         data = analyze_week_load()
 
         day_names = {
@@ -85,7 +81,8 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         await update.message.reply_text(
-            f"📊 Нагрузка недели ({data['week']} неделя)\n\n"
+            chart + "\n\n"
+            f"📊 Анализ недели ({data['week']} неделя)\n\n"
             f"📘 Лекций: {data['lectures']}\n"
             f"📒 Семинаров: {data['seminars']}\n"
             f"⏰ Учебных часов: {data['total_hours']}\n\n"
