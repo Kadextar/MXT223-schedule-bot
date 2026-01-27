@@ -8,6 +8,10 @@ import logging
 import datetime
 from pathlib import Path
 
+import time
+
+LAST_STATUS_CALL = {}
+
 import pytz
 
 from telegram import Update, ReplyKeyboardMarkup
@@ -109,7 +113,7 @@ ALL_SUBJECT_CHATS = (
 # ======================
 
 REMINDER_MINUTES = [30, 15, 5]
-SEMESTER_START_DATE = datetime.date(2026, 1, 1)  # 4 неделя
+SEMESTER_START_DATE = datetime.date(2026, 2, 2)  # 4 неделя
 PAIR_START_TIMES = {
     1: datetime.time(8, 0),
     2: datetime.time(9, 30),
@@ -358,10 +362,9 @@ def uz_time_to_utc(hour: int, minute: int = 0):
 # LOGIC FUNCTIONS
 # ======================
 
-async def rebuild_today_reminders(context: ContextTypes.DEFAULT_TYPE):
-    schedule_today_reminders(context.application)
-
 def get_week_number(today: datetime.date) -> int:
+    if today < SEMESTER_START_DATE:
+        return 0
     delta = today - SEMESTER_START_DATE
     return 4 + delta.days // 7
 
@@ -486,6 +489,14 @@ async def send_pair_reminder(context: ContextTypes.DEFAULT_TYPE):
 def daily_rebuild_reminders(context: ContextTypes.DEFAULT_TYPE):
     schedule_today_reminders(context.application)
 
+def clear_reminder_jobs(app: Application):
+    removed = 0
+    for job in app.job_queue.jobs():
+        if job.callback == send_pair_reminder:
+            job.schedule_removal()
+            removed += 1
+    logger.info(f"🧹 Cleared {removed} reminder jobs")
+
 def schedule_today_reminders(app: Application):
     try:
         today = today_uz()
@@ -572,15 +583,102 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=keyboard
     )
 
-async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logger.info("Status command received")
-    jobs_count = len(context.application.job_queue.jobs())
+async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # ⏱ защита от спама
+    chat_id = update.effective_chat.id
+    now = time.time()
 
+    if chat_id in LAST_STATUS_CALL and now - LAST_STATUS_CALL[chat_id] < 5:
+        return
+
+    LAST_STATUS_CALL[chat_id] = now
+    # ⏱ конец защиты
+
+    today = today_uz()
+
+    text = (
+        f"📅 Сегодня: {today}\n"
+        f"📚 Семестр начался: {'✅' if today >= SEMESTER_START_DATE else '❌'}\n"
+        f"⏰ Активных задач: {len(context.job_queue.jobs())}"
+    )
+
+    await update.message.reply_text(text)
+
+def get_next_lesson():
+    lessons = get_today_schedule()
+    if not lessons:
+        return None
+
+    now = datetime.datetime.now(UZ_TZ)
+
+    for lesson in sorted(lessons, key=lambda x: x["pair"]):
+        pair_time = PAIR_START_TIMES.get(lesson["pair"])
+        if not pair_time:
+            continue
+
+        lesson_dt = UZ_TZ.localize(
+            datetime.datetime.combine(today_uz(), pair_time)
+        )
+
+        if lesson_dt > now:
+            return lesson
+
+    return None
+
+
+async def day_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    today = today_uz()
+    lessons = get_today_schedule()
+    next_lesson = get_next_lesson()
+
+    semester_active = today >= SEMESTER_START_DATE
+
+    if next_lesson:
+        time = PAIR_START_TIMES[next_lesson["pair"]].strftime("%H:%M")
+        next_text = f"{next_lesson['pair']} пара ({time})"
+    else:
+        next_text = "нет"
+
+    text = (
+        "🧠 Статус дня\n\n"
+        f"📅 Сегодня: {today.strftime('%d.%m.%Y')}\n"
+        f"📚 Семестр: {'активен ✅' if semester_active else 'не начался ❌'}\n"
+        f"📘 Пар сегодня: {len(lessons)}\n"
+        f"⏰ Ближайшая: {next_text}\n"
+        f"🔔 Напоминания: включены"
+    )
+
+    await update.message.reply_text(text)
+
+async def next_lesson_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    lesson = get_next_lesson()
+
+    if not lesson:
+        await update.message.reply_text(
+            "🎉 Сегодня больше нет пар"
+        )
+        return
+
+    pair = lesson["pair"]
+    time = PAIR_START_TIMES[pair].strftime("%H:%M")
+    lesson_type = "Лекция" if lesson["type"] == "lecture" else "Семинар"
+
+    text = (
+        "⏰ Следующая пара\n\n"
+        f"🕒 {pair} пара ({time})\n"
+        f"📘 {lesson['subject']}\n"
+        f"🎓 {lesson_type}\n"
+        f"👩‍🏫 {lesson['teacher']}\n"
+        f"🏫 {lesson['room']}"
+    )
+
+    await update.message.reply_text(text)
+
+async def health(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "🤖 Статус бота\n\n"
-        f"📅 Сегодня: {today_uz()}\n"
-        f"🎓 Семестр начался: {'✅' if today_uz() >= SEMESTER_START_DATE else '❌'}\n"
-        f"⏰ Активных задач: {jobs_count}"
+        "✅ Бот работает\n"
+        f"🕒 Сервер (UTC): {datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}\n"
+        f"🇺🇿 Сегодня (UZ): {today_uz().strftime('%Y-%m-%d')}"
     )
 
 async def enable_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -633,6 +731,9 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "📒 Сегодня есть семинарские занятия.\n"
             "(детализация появится дальше)"
         )
+
+    elif text == "🧠 Статус дня":
+        await day_status(update, context)
 
 # ======================
 # AUTO MESSAGES
@@ -687,9 +788,12 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("today", today_command))
     app.add_handler(CommandHandler("tomorrow", tomorrow_command))
-    app.add_handler(CommandHandler("status", status_command))
+    app.add_handler(CommandHandler("status", status))
     app.add_handler(CommandHandler("enable", enable_command))
     app.add_handler(CommandHandler("disable", disable_command))
+    app.add_handler(CommandHandler("health", health))
+    app.add_handler(CommandHandler("day", day_status))
+    app.add_handler(CommandHandler("next", next_lesson_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_buttons))
 
     # утреннее сообщение
@@ -727,6 +831,9 @@ def main():
 
     logger.info("Bot started successfully")
     logger.info("Daily reminders scheduler initialized")
+    logger.info("🚀 Bot is starting")
+    logger.info(f"Semester start date: {SEMESTER_START_DATE}")
+    logger.info(f"Timezone: UZ")
 
     app.run_polling()
 
