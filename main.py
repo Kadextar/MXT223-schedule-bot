@@ -358,6 +358,9 @@ def uz_time_to_utc(hour: int, minute: int = 0):
 # LOGIC FUNCTIONS
 # ======================
 
+async def rebuild_today_reminders(context: ContextTypes.DEFAULT_TYPE):
+    schedule_today_reminders(context.application)
+
 def get_week_number(today: datetime.date) -> int:
     delta = today - SEMESTER_START_DATE
     return 4 + delta.days // 7
@@ -685,36 +688,41 @@ def main():
     app.add_handler(CommandHandler("enable", enable_command))
     app.add_handler(CommandHandler("disable", disable_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_buttons))
-    
+
+    # утреннее сообщение
     app.job_queue.run_daily(
         send_morning_schedule,
         time=uz_time_to_utc(7, 0),
         days=(0, 1, 2, 3, 4),
     )
 
-    def rebuild_daily_reminders(context):
-    schedule_today_reminders(context.application)
+    # вечернее сообщение
+    app.job_queue.run_daily(
+        send_evening_schedule,
+        time=uz_time_to_utc(20, 0),
+        days=(0, 1, 2, 3, 4),
+    )
 
+    # напоминания при старте
+    if today_uz() >= SEMESTER_START_DATE:
+        schedule_today_reminders(app)
+
+    # 🔧 ВАЖНО: функция должна быть С ОТСТУПОМ
+    def rebuild_daily_reminders(context):
+        schedule_today_reminders(context.application)
+
+    # пересбор напоминаний каждый день в 20:00
     app.job_queue.run_daily(
         rebuild_daily_reminders,
         time=uz_time_to_utc(20, 0),
         days=(0, 1, 2, 3, 4),
     )
 
-    # планируем напоминания на сегодня при запуске
-    if today_uz() >= SEMESTER_START_DATE:
-        schedule_today_reminders(app)
-    
-    # и каждый день в 20:00 пересобираем напоминания
-    app.job_queue.run_daily(
-        daily_rebuild_reminders,
-        time=uz_time_to_utc(20, 0),
-        days=(0, 1, 2, 3, 4),
-    )
-
     logger.info("Bot started successfully")
     logger.info("Daily reminders scheduler initialized")
+
     app.run_polling()
+
 
 if __name__ == "__main__":
     main()
