@@ -2,6 +2,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 import time
 import datetime
+from core.time_utils import UZ_TZ, today_uz
 
 from core.time_utils import today_uz
 from core.config import SEMESTER_START_DATE
@@ -29,7 +30,6 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     LAST_STATUS_CALL[chat_id] = now
 
     today = today_uz()
-    now_uz = datetime.datetime.now().strftime("%H:%M:%S")
 
     await update.message.reply_text(
         f"📅 Сегодня: {today}\n"
@@ -40,10 +40,12 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def health(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    now_utc = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    now_uz = datetime.datetime.now(UZ_TZ).strftime("%H:%M:%S")
+    today = today_uz()
 
     await update.message.reply_text(
-        "✅ Бот работает стабильно\n"
-        f"🕒 UTC: {now_utc}\n"
-        "⚡ Все сервисы активны"
+        f"📅 Сегодня: {today}\n"
+        f"🕒 Время (UZ): {now_uz}\n"
+        f"📚 Семестр начался: {'✅' if today >= SEMESTER_START_DATE else '❌'}\n"
+        f"⏰ Активных задач: {len(context.application.job_queue.jobs())}"
     )
