@@ -1,24 +1,14 @@
+# ======================
+# IMPORTS
+# ======================
+
 import os
-import datetime
-import logging
 import json
+import logging
+import datetime
 from pathlib import Path
 
-LAST_MESSAGES_FILE = Path(__file__).parent / "last_messages.json"
-REMINDER_SETTINGS_FILE = Path(__file__).parent / "reminder_settings.json"
-
-logging.basicConfig(
-    format="%(asctime)s | %(levelname)s | %(message)s",
-    level=logging.INFO
-)
-
-logger = logging.getLogger(__name__)
-
-from zoneinfo import ZoneInfo
-
-UZ_TZ = ZoneInfo("Asia/Tashkent")
-def today_uz():
-    return datetime.datetime.now(UZ_TZ).date()
+import pytz
 
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
@@ -30,8 +20,20 @@ from telegram.ext import (
 )
 
 # ======================
+# TIME & TIMEZONE
+# ======================
+
+UZ_TZ = pytz.timezone("Asia/Tashkent")
+
+def today_uz():
+    return datetime.datetime.now(UZ_TZ).date()
+
+# ======================
 # CONFIG
 # ======================
+
+LAST_MESSAGES_FILE = Path(__file__).parent / "last_messages.json"
+REMINDER_SETTINGS_FILE = Path(__file__).parent / "reminder_settings.json"
 
 def load_last_messages():
     if LAST_MESSAGES_FILE.exists():
@@ -44,14 +46,12 @@ def load_last_messages():
             logger.error(f"Failed to load last messages: {e}")
     return {}
 
-
 def save_last_messages():
     try:
         with open(LAST_MESSAGES_FILE, "w", encoding="utf-8") as f:
             json.dump(LAST_MESSAGES, f, ensure_ascii=False, indent=2)
     except Exception as e:
         logger.error(f"Failed to save last messages: {e}")
-
 
 def load_reminder_settings():
     if REMINDER_SETTINGS_FILE.exists():
@@ -63,7 +63,6 @@ def load_reminder_settings():
             logger.error(f"Failed to load reminder settings: {e}")
     return {}
 
-
 def save_reminder_settings():
     try:
         with open(REMINDER_SETTINGS_FILE, "w", encoding="utf-8") as f:
@@ -71,15 +70,19 @@ def save_reminder_settings():
     except Exception as e:
         logger.error(f"Failed to save reminder settings: {e}")
 
-
 def reminders_enabled(chat_id: int) -> bool:
     # по умолчанию — включены
     return REMINDER_SETTINGS.get(chat_id, True)
 
-
+logging.basicConfig(
+    format="%(asctime)s | %(levelname)s | %(message)s",
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
 
 LAST_MESSAGES = load_last_messages()
 REMINDER_SETTINGS = load_reminder_settings()
+
 logger.info(f"Loaded {len(LAST_MESSAGES)} last messages from file")
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -106,7 +109,6 @@ ALL_SUBJECT_CHATS = (
 # ======================
 
 REMINDER_MINUTES = [30, 15, 5]
-
 SEMESTER_START_DATE = datetime.date(2026, 2, 2)  # 4 неделя
 PAIR_START_TIMES = {
     1: datetime.time(8, 0),
@@ -343,6 +345,16 @@ SCHEDULE = {
 }
 
 # ======================
+# TIME HELPERS
+# ======================
+
+def uz_time_to_utc(hour: int, minute: int = 0):
+    uz_now = datetime.datetime.now(UZ_TZ)
+    uz_dt = uz_now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    utc_dt = uz_dt.astimezone(pytz.UTC)
+    return utc_dt.time()
+
+# ======================
 # LOGIC FUNCTIONS
 # ======================
 
@@ -484,10 +496,8 @@ def schedule_today_reminders(app: Application):
         if not pair_time:
             continue
 
-        lesson_datetime = datetime.datetime.combine(
-            today,
-            pair_time,
-            tzinfo=UZ_TZ
+        lesson_datetime = UZ_TZ.localize(
+            datetime.datetime.combine(today, pair_time)
         )
 
         for minutes in REMINDER_MINUTES:
@@ -673,13 +683,16 @@ def main():
     
     app.job_queue.run_daily(
         send_morning_schedule,
-        time=datetime.time(hour=6, minute=0),
+        time=uz_time_to_utc(7, 0),
         days=(0, 1, 2, 3, 4),
     )
 
+    def rebuild_daily_reminders(context):
+    schedule_today_reminders(context.application)
+
     app.job_queue.run_daily(
-        send_evening_schedule,
-        time=datetime.time(hour=20, minute=0),
+        rebuild_daily_reminders,
+        time=uz_time_to_utc(20, 0),
         days=(0, 1, 2, 3, 4),
     )
 
@@ -687,10 +700,10 @@ def main():
     if today_uz() >= SEMESTER_START_DATE:
         schedule_today_reminders(app)
     
-    # и каждый день в 07:00 пересобираем напоминания
+    # и каждый день в 20:00 пересобираем напоминания
     app.job_queue.run_daily(
         lambda ctx: schedule_today_reminders(app),
-        time=datetime.time(hour=7, minute=0),
+        time=uz_time_to_utc(20, 0),
         days=(0, 1, 2, 3, 4),
     )
 
