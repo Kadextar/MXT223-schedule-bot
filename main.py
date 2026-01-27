@@ -567,6 +567,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logger.info("Status command received")
     jobs_count = len(context.application.job_queue.jobs())
 
     await update.message.reply_text(
@@ -601,6 +602,7 @@ async def disable_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ======================
 
 async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logger.info(f"Incoming message: {update.message.text}")
     text = update.message.text
 
     if today_uz() < SEMESTER_START_DATE:
