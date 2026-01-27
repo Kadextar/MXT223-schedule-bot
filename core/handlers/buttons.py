@@ -7,30 +7,103 @@ from core.schedule_service import (
 )
 from core.time_utils import today_uz
 from core.config import SEMESTER_START_DATE
+from core.ui.keyboards import MAIN_KEYBOARD
+
+# 👇 добавим импорты для новых кнопок
+from core.schedule_service import get_today_schedule
+from core.config import PAIR_START_TIMES
+import datetime
+import pytz
+
+UZ_TZ = pytz.timezone("Asia/Tashkent")
+
+
+def get_next_lesson():
+    lessons = get_today_schedule()
+    if not lessons:
+        return None
+
+    now = datetime.datetime.now(UZ_TZ)
+
+    for lesson in sorted(lessons, key=lambda x: x["pair"]):
+        pair_time = PAIR_START_TIMES.get(lesson["pair"])
+        if not pair_time:
+            continue
+
+        lesson_dt = UZ_TZ.localize(
+            datetime.datetime.combine(today_uz(), pair_time)
+        )
+
+        if lesson_dt > now:
+            return lesson
+
+    return None
 
 
 async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
 
+    # ⛔ семестр не начался
     if today_uz() < SEMESTER_START_DATE:
         await update.message.reply_text(
             "📅 Учебный семестр начинается с 2 февраля.\n"
-            "Пока занятий нет 😌"
+            "Пока занятий нет 😌",
+            reply_markup=MAIN_KEYBOARD,
         )
         return
 
+    # 📅 Сегодня
     if text == "📅 Сегодня":
         await update.message.reply_text(format_today_schedule())
 
+    # 🌙 Завтра
     elif text == "🌙 Завтра":
         await update.message.reply_text(format_tomorrow_schedule())
 
-    elif text == "📘 Лекция":
+    # ⏭ Следующая пара
+    elif text == "⏭ Следующая пара":
+        lesson = get_next_lesson()
+
+        if not lesson:
+            await update.message.reply_text("🎉 Сегодня больше нет пар")
+            return
+
+        pair = lesson["pair"]
+        time = PAIR_START_TIMES[pair].strftime("%H:%M")
+        lesson_type = "Лекция" if lesson["type"] == "lecture" else "Семинар"
+
         await update.message.reply_text(
-            "📘 Лекционные занятия будут отображаться здесь."
+            "⏭ Следующая пара:\n\n"
+            f"🕒 {pair} пара ({time})\n"
+            f"📘 {lesson['subject']}\n"
+            f"🎓 {lesson_type}\n"
+            f"👩‍🏫 {lesson['teacher']}\n"
+            f"🏫 {lesson['room']}"
         )
 
-    elif text == "📒 Семинар":
-        await update.message.reply_text(
-            "📒 Семинарские занятия будут отображаться здесь."
+    # 🧠 Статус дня
+    elif text == "🧠 Статус дня":
+        lessons = get_today_schedule()
+        next_lesson = get_next_lesson()
+
+        next_text = (
+            f"{next_lesson['pair']} пара"
+            if next_lesson else "нет"
         )
+
+        await update.message.reply_text(
+            "🧠 Статус дня\n\n"
+            f"📅 Сегодня: {today_uz().strftime('%d.%m.%Y')}\n"
+            f"📘 Пар сегодня: {len(lessons)}\n"
+            f"⏰ Ближайшая: {next_text}\n"
+            f"🔔 Напоминания: включены"
+        )
+
+    # 🤔 неизвестно
+    else:
+        await update.message.reply_text(
+            "🤔 Я не понял команду.\n"
+            "Используй кнопки ниже 👇",
+            reply_markup=MAIN_KEYBOARD,
+        )
+

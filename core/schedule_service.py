@@ -57,12 +57,12 @@ def format_tomorrow_schedule():
 
     weekday = tomorrow.strftime("%A").lower()
     lessons = SCHEDULE.get(weekday, [])
-
     lessons = [l for l in lessons if week in l["weeks"]]
 
     if not lessons:
         return "🌙 Завтра занятий нет 🎉"
 
+    lessons = sorted(lessons, key=lambda x: x["pair"])
     lines = ["🌙 Расписание на завтра:\n"]
 
     for lesson in lessons:

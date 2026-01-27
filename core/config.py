@@ -4,21 +4,20 @@ import datetime
 # ACADEMIC SETTINGS
 # ======================
 
-SEMESTER_START_DATE = datetime.date(2026, 2, 2)  # 4 неделя
+SEMESTER_START_DATE = datetime.date(2026, 2, 2)  # начало семестра (4 неделя)
 
-REMINDER_MINUTES = [30, 15, 5]
+REMINDER_MINUTES = (30, 15, 5)
 
 PAIR_START_TIMES = {
-    1: datetime.time(8, 0),
-    2: datetime.time(9, 30),
-    3: datetime.time(11, 0),
+    1: datetime.time(8, 0),   # 1 пара
+    2: datetime.time(9, 30),  # 2 пара
+    3: datetime.time(11, 0),  # 3 пара
 }
 
 # ======================
 # CHAT IDS
 # ======================
 
-# ID предметных групп
 CHAT_STRATEGY = -1003789929485
 CHAT_QUALITY = -1003798438883
 CHAT_ECONOMY = -1003814835903

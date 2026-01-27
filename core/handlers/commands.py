@@ -1,9 +1,11 @@
 from telegram import Update
 from telegram.ext import ContextTypes
 import time
+import datetime
 
 from core.time_utils import today_uz
 from core.config import SEMESTER_START_DATE
+from core.ui.keyboards import MAIN_KEYBOARD
 
 LAST_STATUS_CALL = {}
 
@@ -12,11 +14,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Привет 👋\n"
         "Я бот расписания группы МХТ-223.\n\n"
-        "Доступные команды:\n"
-        "📅 Сегодня\n"
-        "🌙 Завтра\n"
-        "📊 /status\n"
-        "⚙️ /enable /disable"
+        "Выбери действие ⬇️",
+        reply_markup=MAIN_KEYBOARD,
     )
 
 
@@ -40,6 +39,7 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def health(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "✅ Бот работает\n"
-        f"🕒 UTC: {today_uz()}"
+        f"✅ Бот работает\n"
+        f"🕒 UTC: {datetime.datetime.utcnow()}"
     )
+
