@@ -24,12 +24,16 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     now = time.time()
 
-    # защита от спама
     if chat_id in LAST_STATUS_CALL and now - LAST_STATUS_CALL[chat_id] < 5:
+        await update.message.reply_text(
+            "⏳ Подожди пару секунд перед следующим запросом"
+        )
         return
+
     LAST_STATUS_CALL[chat_id] = now
 
     today = today_uz()
+    now_uz = datetime.datetime.now(UZ_TZ).strftime("%H:%M:%S")
 
     await update.message.reply_text(
         f"📅 Сегодня: {today}\n"
