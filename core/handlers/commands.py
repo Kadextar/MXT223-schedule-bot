@@ -29,17 +29,21 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     LAST_STATUS_CALL[chat_id] = now
 
     today = today_uz()
+    now_uz = datetime.datetime.now().strftime("%H:%M:%S")
 
     await update.message.reply_text(
         f"📅 Сегодня: {today}\n"
+        f"🕒 Время (UZ): {now_uz}\n"
         f"📚 Семестр начался: {'✅' if today >= SEMESTER_START_DATE else '❌'}\n"
         f"⏰ Активных задач: {len(context.application.job_queue.jobs())}"
     )
 
 
 async def health(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        f"✅ Бот работает\n"
-        f"🕒 UTC: {datetime.datetime.utcnow()}"
-    )
+    now_utc = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
 
+    await update.message.reply_text(
+        "✅ Бот работает стабильно\n"
+        f"🕒 UTC: {now_utc}\n"
+        "⚡ Все сервисы активны"
+    )
