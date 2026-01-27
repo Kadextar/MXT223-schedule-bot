@@ -109,7 +109,7 @@ ALL_SUBJECT_CHATS = (
 # ======================
 
 REMINDER_MINUTES = [30, 15, 5]
-SEMESTER_START_DATE = datetime.date(2026, 2, 2)  # 4 неделя
+SEMESTER_START_DATE = datetime.date(2026, 1, 1)  # 4 неделя
 PAIR_START_TIMES = {
     1: datetime.time(8, 0),
     2: datetime.time(9, 30),
