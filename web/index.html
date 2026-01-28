@@ -1,162 +1,35 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8" />
-    <title>Нагрузка недели MXT-223</title>
+  <meta charset="UTF-8" />
+  <title>Нагрузка недели MXT-223</title>
 
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-    <!-- Apple-like font -->
-    <style>
-        :root {
-            --bg: #f5f5f7;
-            --card: rgba(255, 255, 255, 0.75);
-            --text-main: #1d1d1f;
-            --text-secondary: #6e6e73;
-            --accent: #007aff;
-            --shadow: 0 20px 40px rgba(0,0,0,0.08);
-            --radius: 20px;
-        }
-
-        * {
-            box-sizing: border-box;
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
-        }
-
-        body {
-            margin: 0;
-            min-height: 100vh;
-            background: linear-gradient(180deg, #eef1f5, #f5f5f7);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--text-main);
-        }
-
-        .container {
-            width: 100%;
-            max-width: 420px;
-            padding: 20px;
-        }
-
-        h1 {
-            text-align: center;
-            font-size: 26px;
-            font-weight: 600;
-            margin-bottom: 24px;
-        }
-
-        .card {
-            background: var(--card);
-            backdrop-filter: blur(20px);
-            border-radius: var(--radius);
-            box-shadow: var(--shadow);
-            padding: 24px;
-            transition: transform 0.3s ease;
-        }
-
-        .card:hover {
-            transform: translateY(-2px);
-        }
-
-        .item {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 12px;
-            font-size: 15px;
-        }
-
-        .item span:first-child {
-            color: var(--text-secondary);
-        }
-
-        .divider {
-            height: 1px;
-            background: rgba(0,0,0,0.05);
-            margin: 16px 0;
-        }
-
-        .button {
-            margin-top: 20px;
-            width: 100%;
-            height: 44px;
-            border-radius: 14px;
-            border: none;
-            background: var(--accent);
-            color: white;
-            font-size: 16px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.25s ease;
-        }
-
-        .button:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-
-        .button:hover:not(:disabled) {
-            filter: brightness(1.1);
-        }
-
-        .loading {
-            text-align: center;
-            margin-top: 14px;
-            font-size: 14px;
-            color: var(--text-secondary);
-        }
-    </style>
+  <!-- CSS -->
+  <link rel="stylesheet" href="styles.css" />
 </head>
 
 <body>
-<div class="container">
+
+  <div class="container">
     <h1>📊 Нагрузка недели MXT-223</h1>
 
-    <div class="card" id="card">
-        <div class="item"><span>Неделя</span><span id="week">—</span></div>
-        <div class="item"><span>Лекции</span><span id="lectures">—</span></div>
-        <div class="item"><span>Семинары</span><span id="seminars">—</span></div>
-        <div class="item"><span>Часов</span><span id="hours">—</span></div>
+    <div class="card">
+      <div class="row"><span>Неделя</span><span id="week">—</span></div>
+      <div class="row"><span>Лекции</span><span id="lectures">—</span></div>
+      <div class="row"><span>Семинары</span><span id="seminars">—</span></div>
+      <div class="row"><span>Часов</span><span id="hours">—</span></div>
 
-        <div class="divider"></div>
+      <div class="divider"></div>
 
-        <div class="item"><span>🔥 Самый загруженный</span><span id="hard">—</span></div>
-        <div class="item"><span>😌 Самый лёгкий</span><span id="easy">—</span></div>
+      <div class="row">🔥 Самый загруженный: <span id="hardest">—</span></div>
+      <div class="row">😌 Самый лёгкий: <span id="easiest">—</span></div>
 
-        <button class="button" id="btn" onclick="loadData()">Обновить</button>
-        <div class="loading" id="loading"></div>
+      <button id="refresh">Обновить</button>
+      <div class="status" id="status">Готово ✓</div>
     </div>
-</div>
+  </div>
 
-<script>
-    async function loadData() {
-        const btn = document.getElementById("btn");
-        const loading = document.getElementById("loading");
-
-        btn.disabled = true;
-        loading.textContent = "Обновляем данные…";
-
-        try {
-            const res = await fetch("/api/week-load");
-            const data = await res.json();
-
-            document.getElementById("week").textContent = data.week;
-            document.getElementById("lectures").textContent = data.lectures;
-            document.getElementById("seminars").textContent = data.seminars;
-            document.getElementById("hours").textContent = data.total_hours;
-            document.getElementById("hard").textContent = data.most_busy_day;
-            document.getElementById("easy").textContent = data.least_busy_day;
-
-            loading.textContent = "Готово ✓";
-        } catch (e) {
-            loading.textContent = "Ошибка загрузки";
-        }
-
-        btn.disabled = false;
-        setTimeout(() => loading.textContent = "", 2000);
-    }
-
-    loadData();
-</script>
+  <!-- JS -->
+  <script src="app.js"></script>
 </body>
 </html>
