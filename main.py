@@ -2,6 +2,7 @@ import os
 import logging
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
 
+from core.handlers.commands import load
 from core.handlers.commands import start, status, health
 from core.handlers.buttons import handle_buttons
 from core.reminders import schedule_today_reminders, rebuild_daily_reminders
@@ -26,6 +27,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("status", status))
     app.add_handler(CommandHandler("health", health))
+    app.add_handler(CommandHandler("load", load))
 
     # buttons
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_buttons))

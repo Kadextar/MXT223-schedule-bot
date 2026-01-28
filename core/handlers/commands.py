@@ -4,7 +4,7 @@ import time
 import datetime
 from core.time_utils import UZ_TZ, today_uz
 
-from core.analytics import analyze_week_load
+from core.analytics.week_load import analyze_week_load
 from core.time_utils import today_uz
 from core.config import SEMESTER_START_DATE
 
