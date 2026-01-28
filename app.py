@@ -1,16 +1,24 @@
+import os
 from fastapi import FastAPI
-from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
 from core.analytics import analyze_week_load
 from core.schedule_service import format_today_schedule
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 app = FastAPI(title="MXT-223 Web API")
 
+app.mount(
+    "/static",
+    StaticFiles(directory=os.path.join(BASE_DIR, "web", "static")),
+    name="static"
+)
 
 @app.get("/")
 def index():
-    return FileResponse("web/index.html")
+    return FileResponse(os.path.join(BASE_DIR, "web", "index.html"))
 
 
 @app.get("/health")
