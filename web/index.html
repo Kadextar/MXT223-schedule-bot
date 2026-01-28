@@ -2,132 +2,161 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8" />
-    <title>MXT-223 — Нагрузка недели</title>
+    <title>Нагрузка недели MXT-223</title>
 
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
+    <!-- Apple-like font -->
     <style>
+        :root {
+            --bg: #f5f5f7;
+            --card: rgba(255, 255, 255, 0.75);
+            --text-main: #1d1d1f;
+            --text-secondary: #6e6e73;
+            --accent: #007aff;
+            --shadow: 0 20px 40px rgba(0,0,0,0.08);
+            --radius: 20px;
+        }
+
+        * {
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+        }
+
         body {
-            font-family: Arial, sans-serif;
-            background: #0f172a;
-            color: #e5e7eb;
-            padding: 30px;
+            margin: 0;
+            min-height: 100vh;
+            background: linear-gradient(180deg, #eef1f5, #f5f5f7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-main);
+        }
+
+        .container {
+            width: 100%;
+            max-width: 420px;
+            padding: 20px;
         }
 
         h1 {
             text-align: center;
+            font-size: 26px;
+            font-weight: 600;
+            margin-bottom: 24px;
         }
 
         .card {
-            background: #020617;
-            border-radius: 12px;
-            padding: 20px;
-            max-width: 700px;
-            margin: 0 auto;
-            box-shadow: 0 0 20px rgba(0,0,0,.4);
+            background: var(--card);
+            backdrop-filter: blur(20px);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 24px;
+            transition: transform 0.3s ease;
         }
 
-        canvas {
+        .card:hover {
+            transform: translateY(-2px);
+        }
+
+        .item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            font-size: 15px;
+        }
+
+        .item span:first-child {
+            color: var(--text-secondary);
+        }
+
+        .divider {
+            height: 1px;
+            background: rgba(0,0,0,0.05);
+            margin: 16px 0;
+        }
+
+        .button {
             margin-top: 20px;
-        }
-
-        .stats {
-            margin-top: 20px;
-            line-height: 1.8;
-        }
-
-        .btn {
-            display: block;
-            margin: 20px auto 0;
-            padding: 10px 20px;
-            background: #2563eb;
-            color: white;
+            width: 100%;
+            height: 44px;
+            border-radius: 14px;
             border: none;
-            border-radius: 8px;
-            cursor: pointer;
+            background: var(--accent);
+            color: white;
             font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.25s ease;
         }
 
-        .btn:hover {
-            background: #1d4ed8;
+        .button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .button:hover:not(:disabled) {
+            filter: brightness(1.1);
+        }
+
+        .loading {
+            text-align: center;
+            margin-top: 14px;
+            font-size: 14px;
+            color: var(--text-secondary);
         }
     </style>
 </head>
+
 <body>
+<div class="container">
+    <h1>📊 Нагрузка недели MXT-223</h1>
 
-<h1>📊 Нагрузка недели MXT-223</h1>
+    <div class="card" id="card">
+        <div class="item"><span>Неделя</span><span id="week">—</span></div>
+        <div class="item"><span>Лекции</span><span id="lectures">—</span></div>
+        <div class="item"><span>Семинары</span><span id="seminars">—</span></div>
+        <div class="item"><span>Часов</span><span id="hours">—</span></div>
 
-<div class="card">
-    <canvas id="chart"></canvas>
+        <div class="divider"></div>
 
-    <div class="stats" id="stats">
-        Загрузка данных…
+        <div class="item"><span>🔥 Самый загруженный</span><span id="hard">—</span></div>
+        <div class="item"><span>😌 Самый лёгкий</span><span id="easy">—</span></div>
+
+        <button class="button" id="btn" onclick="loadData()">Обновить</button>
+        <div class="loading" id="loading"></div>
     </div>
-
-    <button class="btn" onclick="loadData()">🔄 Обновить</button>
 </div>
 
 <script>
-async function loadData() {
-    const res = await fetch("/api/week-load");
-    const data = await res.json();
+    async function loadData() {
+        const btn = document.getElementById("btn");
+        const loading = document.getElementById("loading");
 
-    const dayNames = {
-        monday: "Пн",
-        tuesday: "Вт",
-        wednesday: "Ср",
-        thursday: "Чт",
-        friday: "Пт"
-    };
+        btn.disabled = true;
+        loading.textContent = "Обновляем данные…";
 
-    const labels = [];
-    const values = [];
+        try {
+            const res = await fetch("/api/week-load");
+            const data = await res.json();
 
-    for (const day in data.day_load) {
-        labels.push(dayNames[day] || day);
-        values.push(data.day_load[day]);
-    }
+            document.getElementById("week").textContent = data.week;
+            document.getElementById("lectures").textContent = data.lectures;
+            document.getElementById("seminars").textContent = data.seminars;
+            document.getElementById("hours").textContent = data.total_hours;
+            document.getElementById("hard").textContent = data.most_busy_day;
+            document.getElementById("easy").textContent = data.least_busy_day;
 
-    // обновляем текст
-    document.getElementById("stats").innerHTML = `
-        📅 Неделя: <b>${data.week}</b><br>
-        📘 Лекций: <b>${data.lectures}</b><br>
-        📒 Семинаров: <b>${data.seminars}</b><br>
-        ⏰ Часов: <b>${data.total_hours}</b><br>
-        🔥 Самый загруженный: <b>${dayNames[data.hardest_day]}</b><br>
-        😌 Самый лёгкий: <b>${dayNames[data.easiest_day]}</b>
-    `;
-
-    // график
-    if (window.chart) {
-        window.chart.destroy();
-    }
-
-    const ctx = document.getElementById("chart");
-
-    window.chart = new Chart(ctx, {
-        type: "bar",
-        data: {
-            labels,
-            datasets: [{
-                label: "Учебные часы",
-                data: values,
-                backgroundColor: "#38bdf8"
-            }]
-        },
-        options: {
-            scales: {
-                y: {
-                    beginAtZero: true
-                }
-            }
+            loading.textContent = "Готово ✓";
+        } catch (e) {
+            loading.textContent = "Ошибка загрузки";
         }
-    });
-}
 
-loadData();
+        btn.disabled = false;
+        setTimeout(() => loading.textContent = "", 2000);
+    }
+
+    loadData();
 </script>
-
 </body>
 </html>
