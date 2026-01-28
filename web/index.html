@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <title>MXT-223 — Нагрузка недели</title>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #0f172a;
+            color: #e5e7eb;
+            padding: 30px;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        .card {
+            background: #020617;
+            border-radius: 12px;
+            padding: 20px;
+            max-width: 700px;
+            margin: 0 auto;
+            box-shadow: 0 0 20px rgba(0,0,0,.4);
+        }
+
+        canvas {
+            margin-top: 20px;
+        }
+
+        .stats {
+            margin-top: 20px;
+            line-height: 1.8;
+        }
+
+        .btn {
+            display: block;
+            margin: 20px auto 0;
+            padding: 10px 20px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .btn:hover {
+            background: #1d4ed8;
+        }
+    </style>
+</head>
+<body>
+
+<h1>📊 Нагрузка недели MXT-223</h1>
+
+<div class="card">
+    <canvas id="chart"></canvas>
+
+    <div class="stats" id="stats">
+        Загрузка данных…
+    </div>
+
+    <button class="btn" onclick="loadData()">🔄 Обновить</button>
+</div>
+
+<script>
+async function loadData() {
+    const res = await fetch("/api/week-load");
+    const data = await res.json();
+
+    const dayNames = {
+        monday: "Пн",
+        tuesday: "Вт",
+        wednesday: "Ср",
+        thursday: "Чт",
+        friday: "Пт"
+    };
+
+    const labels = [];
+    const values = [];
+
+    for (const day in data.day_load) {
+        labels.push(dayNames[day] || day);
+        values.push(data.day_load[day]);
+    }
+
+    // обновляем текст
+    document.getElementById("stats").innerHTML = `
+        📅 Неделя: <b>${data.week}</b><br>
+        📘 Лекций: <b>${data.lectures}</b><br>
+        📒 Семинаров: <b>${data.seminars}</b><br>
+        ⏰ Часов: <b>${data.total_hours}</b><br>
+        🔥 Самый загруженный: <b>${dayNames[data.hardest_day]}</b><br>
+        😌 Самый лёгкий: <b>${dayNames[data.easiest_day]}</b>
+    `;
+
+    // график
+    if (window.chart) {
+        window.chart.destroy();
+    }
+
+    const ctx = document.getElementById("chart");
+
+    window.chart = new Chart(ctx, {
+        type: "bar",
+        data: {
+            labels,
+            datasets: [{
+                label: "Учебные часы",
+                data: values,
+                backgroundColor: "#38bdf8"
+            }]
+        },
+        options: {
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+loadData();
+</script>
+
+</body>
+</html>
