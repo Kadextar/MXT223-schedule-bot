@@ -6,13 +6,17 @@ import os
 from core.analytics import analyze_week_load
 from core.schedule_service import format_today_schedule
 
+from pathlib import Path
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 app = FastAPI(title="MXT-223 Web API")
 
+BASE_DIR = Path(__file__).resolve().parent
+
 app.mount(
     "/static",
-    StaticFiles(directory=os.path.join(BASE_DIR, "web", "static")),
+    StaticFiles(directory=BASE_DIR / "web" / "static"),
     name="static"
 )
 
