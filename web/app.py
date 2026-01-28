@@ -1,7 +1,9 @@
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from core.analytics import analyze_week_load
 from core.schedule_service import format_today_schedule
+
 
 app = FastAPI(title="MXT-223 Web API")
 

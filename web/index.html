@@ -2,10 +2,14 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <title>Нагрузка недели MXT-223</title>
 
   <!-- CSS -->
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="/static/styles.css">
+  <script src="/static/app.js" defer></script>
 </head>
 
 <body>
@@ -29,7 +33,12 @@
     </div>
   </div>
 
-  <!-- JS -->
-  <script src="app.js"></script>
+  <script src="/static/app.js"></script>
+  
+  <script>
+    if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("/static/sw.js");
+    }
+</script>
 </body>
 </html>
