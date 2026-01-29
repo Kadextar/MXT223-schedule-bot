@@ -137,6 +137,18 @@ def init_database():
     """
     cursor.execute(ratings_sql)
     
+    # Students table (for authentication)
+    students_sql = f"""
+        CREATE TABLE IF NOT EXISTS students (
+            id {id_type},
+            telegram_id TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            name TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """
+    cursor.execute(students_sql)
+    
     # Индексы
     cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_day_week 
@@ -471,4 +483,66 @@ def get_student_rating(teacher_id: int, student_id: str):
     if is_postgres:
         sql = sql.replace('?', '%s')
     result = execute_query(sql, params=(teacher_id, student_hash), fetch_one=True)
+    return dict(result) if result else None
+
+# --- Student Authentication Functions ---
+
+def add_student(telegram_id: str, password: str, name: str):
+    """Добавляет студента в систему"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    is_postgres = bool(DATABASE_URL)
+    
+    insert_sql = "INSERT INTO students (telegram_id, password, name) VALUES (?, ?, ?)"
+    if is_postgres:
+        insert_sql = insert_sql.replace('?', '%s')
+    
+    try:
+        cursor.execute(insert_sql, (telegram_id, password, name))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        logger.error(f"Error adding student: {e}")
+        conn.close()
+        return False
+
+def verify_student_login(telegram_id: str, password: str):
+    """Проверяет логин и пароль студента"""
+    sql = "SELECT * FROM students WHERE telegram_id = ? AND password = ?"
+    is_postgres = bool(DATABASE_URL)
+    if is_postgres:
+        sql = sql.replace('?', '%s')
+    
+    result = execute_query(sql, params=(telegram_id, password), fetch_one=True)
+    return dict(result) if result else None
+
+def change_student_password(telegram_id: str, old_password: str, new_password: str):
+    """Меняет пароль студента"""
+    # Сначала проверяем старый пароль
+    student = verify_student_login(telegram_id, old_password)
+    if not student:
+        return False
+    
+    conn = get_connection()
+    cursor = conn.cursor()
+    is_postgres = bool(DATABASE_URL)
+    
+    update_sql = "UPDATE students SET password = ? WHERE telegram_id = ?"
+    if is_postgres:
+        update_sql = update_sql.replace('?', '%s')
+    
+    cursor.execute(update_sql, (new_password, telegram_id))
+    conn.commit()
+    conn.close()
+    return True
+
+def get_student_by_telegram_id(telegram_id: str):
+    """Получает информацию о студенте по Telegram ID"""
+    sql = "SELECT telegram_id, name FROM students WHERE telegram_id = ?"
+    is_postgres = bool(DATABASE_URL)
+    if is_postgres:
+        sql = sql.replace('?', '%s')
+    
+    result = execute_query(sql, params=(telegram_id,), fetch_one=True)
     return dict(result) if result else None

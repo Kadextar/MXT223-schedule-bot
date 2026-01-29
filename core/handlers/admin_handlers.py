@@ -267,3 +267,56 @@ async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Объявление сохранено в БД и будет показано на сайте.",
         parse_mode="Markdown"
     )
+
+async def init_students_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Инициализирует студентов с начальными паролями (только для админа)"""
+    user_id = update.effective_user.id
+    
+    if user_id != ADMIN_ID:
+        await update.message.reply_text("❌ Эта команда доступна только администратору.")
+        return
+    
+    from core.database import add_student
+    
+    students = [
+        {"telegram_id": "1748727700", "password": "robiya2026", "name": "Робия"},
+        {"telegram_id": "1427112602", "password": "sardor2026", "name": "Сардор"},
+        {"telegram_id": "1937736219", "password": "khislatbek2026", "name": "Хислатбек"},
+        {"telegram_id": "207103078", "password": "timur2026", "name": "Тимур"},
+        {"telegram_id": "5760110758", "password": "amir2026", "name": "Амир"},
+        {"telegram_id": "1362668588", "password": "muhammad2026", "name": "Мухаммад"},
+        {"telegram_id": "2023499343", "password": "abdumalik2026", "name": "Абдумалик"},
+        {"telegram_id": "1214641616", "password": "azamat2026", "name": "Азамат"},
+        {"telegram_id": "1020773033", "password": "nozima2026", "name": "Нозима"}
+    ]
+    
+    success_count = 0
+    already_exists = 0
+    
+    for student in students:
+        result = add_student(
+            telegram_id=student["telegram_id"],
+            password=student["password"],
+            name=student["name"]
+        )
+        if result:
+            success_count += 1
+        else:
+            already_exists += 1
+    
+    await update.message.reply_text(
+        f"✅ Инициализация студентов завершена!\n\n"
+        f"➕ Добавлено: {success_count}\n"
+        f"⚠️ Уже существовали: {already_exists}\n\n"
+        f"📋 Начальные пароли:\n"
+        f"• Робия: robiya2026\n"
+        f"• Сардор: sardor2026\n"
+        f"• Хислатбек: khislatbek2026\n"
+        f"• Тимур: timur2026\n"
+        f"• Амир: amir2026\n"
+        f"• Мухаммад: muhammad2026\n"
+        f"• Абдумалик: abdumalik2026\n"
+        f"• Азамат: azamat2026\n"
+        f"• Нозима: nozima2026",
+        parse_mode="Markdown"
+    )
