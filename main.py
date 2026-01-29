@@ -16,6 +16,7 @@ from core.handlers.user_commands import (
     week_schedule,
     week_navigation_callback,
 )
+from core.handlers.exams_handler import exams_command
 from core.handlers.quick_actions import quick_actions_callback
 from core.reminders import schedule_today_reminders, rebuild_daily_reminders
 from core.auto_messages import send_morning_schedule, send_evening_schedule
@@ -43,6 +44,7 @@ async def post_init(application):
         BotCommand("week", "📊 Расписание на неделю"),
         BotCommand("next", "⏰ Следующая пара"),
         BotCommand("load", "📈 Анализ нагрузки"),
+        BotCommand("exams", "📝 Расписание экзаменов"),
         BotCommand("admin", "🔧 Панель администратора"),
     ]
     
@@ -64,6 +66,7 @@ def main():
     app.add_handler(CommandHandler("tomorrow", tomorrow_schedule))
     app.add_handler(CommandHandler("next", next_lesson))
     app.add_handler(CommandHandler("week", week_schedule))
+    app.add_handler(CommandHandler("exams", exams_command))
 
     # admin commands
     app.add_handler(CommandHandler("admin", admin_menu))
