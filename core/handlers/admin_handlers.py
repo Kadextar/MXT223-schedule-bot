@@ -272,7 +272,7 @@ async def init_students_command(update: Update, context: ContextTypes.DEFAULT_TY
     """Инициализирует студентов с начальными паролями (только для админа)"""
     user_id = update.effective_user.id
     
-    if user_id != ADMIN_ID:
+    if user_id not in ADMIN_IDS:
         await update.message.reply_text("❌ Эта команда доступна только администратору.")
         return
     
