@@ -5,7 +5,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQu
 from core.handlers.commands import load
 from core.handlers.commands import start, status, health
 from core.handlers.buttons import handle_buttons
-from core.handlers.admin_handlers import admin_menu, list_lessons, admin_callback_handler, reset_schedule
+from core.handlers.admin_handlers import admin_menu, list_lessons, admin_callback_handler, reset_schedule, broadcast
 from core.handlers.admin_add_lesson import add_lesson_conversation
 from core.handlers.admin_delete_lesson import delete_lesson_conversation
 from core.handlers.user_commands import (
@@ -49,6 +49,7 @@ def main():
     app.add_handler(CommandHandler("admin", admin_menu))
     app.add_handler(CommandHandler("list_lessons", list_lessons))
     app.add_handler(CommandHandler("reset_schedule", reset_schedule))
+    app.add_handler(CommandHandler("broadcast", broadcast))
     
     # admin conversations
     app.add_handler(add_lesson_conversation)

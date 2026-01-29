@@ -97,6 +97,17 @@ def init_database():
     
     cursor.execute(sql)
     
+    # Announcements table
+    announcements_sql = f"""
+        CREATE TABLE IF NOT EXISTS announcements (
+            id {id_type},
+            message TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            is_active BOOLEAN DEFAULT TRUE
+        )
+    """
+    cursor.execute(announcements_sql)
+    
     # Индексы
     cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_day_week 
@@ -246,3 +257,42 @@ def update_lesson(
 
 def clear_all_lessons():
     execute_query("DELETE FROM schedule", commit=True)
+
+# --- Announcement Functions ---
+
+def add_announcement(message: str) -> int:
+    """Добавляет новое объявление и деактивирует старые"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    is_postgres = bool(DATABASE_URL)
+    
+    # Деактивируем все старые объявления
+    deactivate_sql = "UPDATE announcements SET is_active = FALSE" if not is_postgres else "UPDATE announcements SET is_active = FALSE"
+    cursor.execute(deactivate_sql)
+    
+    # Добавляем новое
+    insert_sql = "INSERT INTO announcements (message, is_active) VALUES (?, TRUE)"
+    if is_postgres:
+        insert_sql = insert_sql.replace('?', '%s') + " RETURNING id"
+    
+    cursor.execute(insert_sql.replace('?', '%s') if is_postgres else insert_sql, (message,))
+    
+    if is_postgres:
+        row = cursor.fetchone()
+        announcement_id = row['id'] if row else None
+    else:
+        announcement_id = cursor.lastrowid
+    
+    conn.commit()
+    conn.close()
+    return announcement_id
+
+def get_active_announcement():
+    """Получает активное объявление"""
+    sql = "SELECT * FROM announcements WHERE is_active = TRUE ORDER BY created_at DESC LIMIT 1"
+    result = execute_query(sql, fetch_one=True)
+    return dict(result) if result else None
+
+def deactivate_all_announcements():
+    """Деактивирует все объявления"""
+    execute_query("UPDATE announcements SET is_active = FALSE", commit=True)

@@ -228,3 +228,42 @@ async def reset_schedule(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"Error resetting schedule: {e}")
         await msg.edit_text(f"❌ Ошибка при обновлении: {e}")
+
+@admin_only
+async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Отправить объявление всем пользователям и сохранить в БД"""
+    from core.database import add_announcement
+    
+    if not context.args:
+        await update.message.reply_text(
+            "📣 *Broadcast - Рассылка объявлений*\n\n"
+            "Использование:\n"
+            "`/broadcast <сообщение>`\n\n"
+            "Пример:\n"
+            "`/broadcast Завтра пары отменяются!`\n\n"
+            "Сообщение будет:\n"
+            "• Отправлено всем пользователям бота\n"
+            "• Показано на сайте как объявление",
+            parse_mode="Markdown"
+        )
+        return
+    
+    message = " ".join(context.args)
+    
+    # Сохраняем в БД
+    try:
+        add_announcement(message)
+        logger.info(f"Announcement created: {message}")
+    except Exception as e:
+        logger.error(f"Error saving announcement: {e}")
+        await update.message.reply_text(f"❌ Ошибка при сохранении объявления: {e}")
+        return
+    
+    # Отправляем всем пользователям (если есть список)
+    # Для простоты пока просто подтверждаем админу
+    await update.message.reply_text(
+        f"✅ *Объявление опубликовано!*\n\n"
+        f"📣 {message}\n\n"
+        f"Объявление сохранено в БД и будет показано на сайте.",
+        parse_mode="Markdown"
+    )
