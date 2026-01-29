@@ -108,6 +108,35 @@ def init_database():
     """
     cursor.execute(announcements_sql)
     
+    # Teachers table
+    teachers_sql = f"""
+        CREATE TABLE IF NOT EXISTS teachers (
+            id {id_type},
+            name TEXT UNIQUE NOT NULL,
+            subject TEXT,
+            average_rating FLOAT DEFAULT 0,
+            total_ratings INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """
+    cursor.execute(teachers_sql)
+    
+    # Teacher ratings table
+    ratings_sql = f"""
+        CREATE TABLE IF NOT EXISTS teacher_ratings (
+            id {id_type},
+            teacher_id INTEGER NOT NULL,
+            student_hash TEXT NOT NULL,
+            rating INTEGER NOT NULL CHECK (rating >= 0 AND rating <= 100),
+            tags TEXT,
+            comment TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(teacher_id, student_hash)
+        )
+    """
+    cursor.execute(ratings_sql)
+    
     # Индексы
     cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_day_week 
@@ -296,3 +325,150 @@ def get_active_announcement():
 def deactivate_all_announcements():
     """Деактивирует все объявления"""
     execute_query("UPDATE announcements SET is_active = FALSE", commit=True)
+
+# --- Teacher Rating Functions ---
+
+import hashlib
+
+def hash_student_id(student_id: str, salt: str = "mxt223_secret") -> str:
+    """Хеширует student ID для анонимности"""
+    return hashlib.sha256(f"{student_id}{salt}".encode()).hexdigest()
+
+def add_or_update_teacher(name: str, subject: str = None) -> int:
+    """Добавляет преподавателя или возвращает существующего"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    is_postgres = bool(DATABASE_URL)
+    
+    # Проверяем, существует ли преподаватель
+    check_sql = "SELECT id FROM teachers WHERE name = ?"
+    if is_postgres:
+        check_sql = check_sql.replace('?', '%s')
+    
+    cursor.execute(check_sql, (name,))
+    row = cursor.fetchone()
+    
+    if row:
+        teacher_id = row['id'] if is_postgres else row[0]
+        conn.close()
+        return teacher_id
+    
+    # Добавляем нового
+    insert_sql = "INSERT INTO teachers (name, subject) VALUES (?, ?)"
+    if is_postgres:
+        insert_sql = insert_sql.replace('?', '%s') + " RETURNING id"
+    
+    cursor.execute(insert_sql.replace('?', '%s') if is_postgres else insert_sql, (name, subject))
+    
+    if is_postgres:
+        row = cursor.fetchone()
+        teacher_id = row['id'] if row else None
+    else:
+        teacher_id = cursor.lastrowid
+    
+    conn.commit()
+    conn.close()
+    return teacher_id
+
+def get_all_teachers():
+    """Получает список всех преподавателей с рейтингами"""
+    sql = "SELECT * FROM teachers ORDER BY average_rating DESC"
+    result = execute_query(sql, fetch_all=True)
+    return [dict(row) for row in result] if result else []
+
+def get_teacher_by_id(teacher_id: int):
+    """Получает преподавателя по ID"""
+    sql = "SELECT * FROM teachers WHERE id = ?"
+    is_postgres = bool(DATABASE_URL)
+    if is_postgres:
+        sql = sql.replace('?', '%s')
+    result = execute_query(sql, params=(teacher_id,), fetch_one=True)
+    return dict(result) if result else None
+
+def add_or_update_rating(teacher_id: int, student_id: str, rating: int, tags: str = None, comment: str = None):
+    """Добавляет или обновляет оценку преподавателя"""
+    student_hash = hash_student_id(student_id)
+    conn = get_connection()
+    cursor = conn.cursor()
+    is_postgres = bool(DATABASE_URL)
+    
+    # Проверяем, есть ли уже оценка от этого студента
+    check_sql = "SELECT id FROM teacher_ratings WHERE teacher_id = ? AND student_hash = ?"
+    if is_postgres:
+        check_sql = check_sql.replace('?', '%s')
+    
+    cursor.execute(check_sql, (teacher_id, student_hash))
+    existing = cursor.fetchone()
+    
+    if existing:
+        # Обновляем существующую оценку
+        update_sql = "UPDATE teacher_ratings SET rating = ?, tags = ?, comment = ?, updated_at = CURRENT_TIMESTAMP WHERE teacher_id = ? AND student_hash = ?"
+        if is_postgres:
+            update_sql = update_sql.replace('?', '%s')
+        cursor.execute(update_sql, (rating, tags, comment, teacher_id, student_hash))
+    else:
+        # Добавляем новую оценку
+        insert_sql = "INSERT INTO teacher_ratings (teacher_id, student_hash, rating, tags, comment) VALUES (?, ?, ?, ?, ?)"
+        if is_postgres:
+            insert_sql = insert_sql.replace('?', '%s')
+        cursor.execute(insert_sql, (teacher_id, student_hash, rating, tags, comment))
+    
+    conn.commit()
+    
+    # Обновляем средний рейтинг преподавателя
+    update_teacher_rating(teacher_id, cursor)
+    
+    conn.commit()
+    conn.close()
+
+def update_teacher_rating(teacher_id: int, cursor=None):
+    """Пересчитывает средний рейтинг преподавателя"""
+    should_close = cursor is None
+    if cursor is None:
+        conn = get_connection()
+        cursor = conn.cursor()
+    
+    is_postgres = bool(DATABASE_URL)
+    
+    # Считаем средний рейтинг
+    stats_sql = "SELECT AVG(rating) as avg_rating, COUNT(*) as total FROM teacher_ratings WHERE teacher_id = ?"
+    if is_postgres:
+        stats_sql = stats_sql.replace('?', '%s')
+    
+    cursor.execute(stats_sql, (teacher_id,))
+    row = cursor.fetchone()
+    
+    avg_rating = row['avg_rating'] if is_postgres else row[0]
+    total_ratings = row['total'] if is_postgres else row[1]
+    
+    avg_rating = round(avg_rating, 2) if avg_rating else 0
+    
+    # Обновляем преподавателя
+    update_sql = "UPDATE teachers SET average_rating = ?, total_ratings = ? WHERE id = ?"
+    if is_postgres:
+        update_sql = update_sql.replace('?', '%s')
+    
+    cursor.execute(update_sql, (avg_rating, total_ratings, teacher_id))
+    
+    if should_close:
+        conn.commit()
+        conn.close()
+
+def get_teacher_ratings(teacher_id: int):
+    """Получает все оценки преподавателя (без student_hash для анонимности)"""
+    sql = "SELECT rating, tags, comment, created_at FROM teacher_ratings WHERE teacher_id = ? ORDER BY created_at DESC"
+    is_postgres = bool(DATABASE_URL)
+    if is_postgres:
+        sql = sql.replace('?', '%s')
+    result = execute_query(sql, params=(teacher_id,), fetch_all=True)
+    return [dict(row) for row in result] if result else []
+
+def get_student_rating(teacher_id: int, student_id: str):
+    """Получает оценку конкретного студента (для редактирования)"""
+    student_hash = hash_student_id(student_id)
+    sql = "SELECT rating, tags, comment FROM teacher_ratings WHERE teacher_id = ? AND student_hash = ?"
+    is_postgres = bool(DATABASE_URL)
+    if is_postgres:
+        sql = sql.replace('?', '%s')
+    result = execute_query(sql, params=(teacher_id, student_hash), fetch_one=True)
+    return dict(result) if result else None
