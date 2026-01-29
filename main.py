@@ -15,6 +15,7 @@ from core.handlers.user_commands import (
     week_schedule,
     week_navigation_callback,
 )
+from core.handlers.quick_actions import quick_actions_callback
 from core.reminders import schedule_today_reminders, rebuild_daily_reminders
 from core.auto_messages import send_morning_schedule, send_evening_schedule
 from core.time_utils import today_uz, uz_time_to_utc
@@ -30,8 +31,26 @@ if not BOT_TOKEN:
 WEEKDAYS = (0, 1, 2, 3, 4)  # Пн–Пт
 
 
+async def post_init(application):
+    """Set up bot commands menu after initialization"""
+    from telegram import BotCommand
+    
+    commands = [
+        BotCommand("start", "🏠 Главное меню"),
+        BotCommand("today", "📅 Расписание на сегодня"),
+        BotCommand("tomorrow", "📆 Расписание на завтра"),
+        BotCommand("week", "📊 Расписание на неделю"),
+        BotCommand("next", "⏰ Следующая пара"),
+        BotCommand("load", "📈 Анализ нагрузки"),
+        BotCommand("admin", "🔧 Панель администратора"),
+    ]
+    
+    await application.bot.set_my_commands(commands)
+    logger.info("✅ Bot commands menu set up")
+
+
 def main():
-    app = Application.builder().token(BOT_TOKEN).build()
+    app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
 
     # commands
     app.add_handler(CommandHandler("start", start))
@@ -58,7 +77,9 @@ def main():
     
     # callback handlers
     app.add_handler(CallbackQueryHandler(admin_callback_handler, pattern="^admin_"))
+    app.add_handler(CallbackQueryHandler(admin_callback_handler, pattern="^broadcast_"))
     app.add_handler(CallbackQueryHandler(week_navigation_callback, pattern="^week_"))
+    app.add_handler(CallbackQueryHandler(quick_actions_callback, pattern="^quick_"))
 
     # buttons
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_buttons))

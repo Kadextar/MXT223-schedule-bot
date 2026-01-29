@@ -1,4 +1,4 @@
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 import time
 import datetime
@@ -14,17 +14,32 @@ LAST_STATUS_CALL = {}
 from core.ui.keyboards import MAIN_KEYBOARD
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Inline keyboard with website and quick actions
+    keyboard = [
+        [InlineKeyboardButton("🌐 Открыть сайт", url="https://mxt223-web-production.up.railway.app")],
+        [
+            InlineKeyboardButton("📅 Сегодня", callback_data="quick_today"),
+            InlineKeyboardButton("📆 Завтра", callback_data="quick_tomorrow")
+        ],
+        [
+            InlineKeyboardButton("📊 Неделя", callback_data="quick_week"),
+            InlineKeyboardButton("⏰ Следующая пара", callback_data="quick_next")
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
     await update.message.reply_text(
-        "Привет 👋\n"
-        "Я бот расписания группы МХТ-223.\n\n"
-        "📌 **Доступные команды:**\n"
-        "/today — Расписание на сегодня\n"
-        "/tomorrow — Расписание на завтра\n"
-        "/week — Расписание на неделю\n"
-        "/next — Следующая пара\n"
-        "/load — Анализ нагрузки\n\n"
-        "Или используйте кнопки ⬇️",
-        reply_markup=MAIN_KEYBOARD,
+        "👋 **Привет!**\\n\\n"
+        "Я бот расписания группы **МХТ-223**.\\n\\n"
+        "🌐 **Сайт:** [mxt223-web-production.up.railway.app](https://mxt223-web-production.up.railway.app)\\n\\n"
+        "📌 **Основные команды:**\\n"
+        "/today — Расписание на сегодня\\n"
+        "/tomorrow — Расписание на завтра\\n"
+        "/week — Расписание на неделю\\n"
+        "/next — Следующая пара\\n"
+        "/load — Анализ нагрузки\\n\\n"
+        "Используйте кнопки ниже для быстрого доступа ⬇️",
+        reply_markup=reply_markup,
         parse_mode="Markdown",
     )
 
@@ -45,9 +60,9 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     now_uz = datetime.datetime.now(UZ_TZ).strftime("%H:%M:%S")
 
     await update.message.reply_text(
-        f"📅 Сегодня: {today}\n"
-        f"🕒 Время (UZ): {now_uz}\n"
-        f"📚 Семестр начался: {'✅' if today >= SEMESTER_START_DATE else '❌'}\n"
+        f"📅 Сегодня: {today}\\n"
+        f"🕒 Время (UZ): {now_uz}\\n"
+        f"📚 Семестр начался: {'✅' if today >= SEMESTER_START_DATE else '❌'}\\n"
         f"⏰ Активных задач: {len(context.application.job_queue.jobs())}"
     )
 
@@ -57,9 +72,9 @@ async def health(update: Update, context: ContextTypes.DEFAULT_TYPE):
     today = today_uz()
 
     await update.message.reply_text(
-        f"📅 Сегодня: {today}\n"
-        f"🕒 Время (UZ): {now_uz}\n"
-        f"📚 Семестр начался: {'✅' if today >= SEMESTER_START_DATE else '❌'}\n"
+        f"📅 Сегодня: {today}\\n"
+        f"🕒 Время (UZ): {now_uz}\\n"
+        f"📚 Семестр начался: {'✅' if today >= SEMESTER_START_DATE else '❌'}\\n"
         f"⏰ Активных задач: {len(context.application.job_queue.jobs())}"
     )
 
@@ -74,19 +89,19 @@ async def load(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "friday": "Пт",
     }
 
-    days_text = "\n".join(
+    days_text = "\\n".join(
         f"• {day_names.get(day, day)} — {hours} ч"
         for day, hours in data["day_load"].items()
     )
 
     text = (
-        f"📊 Нагрузка недели ({data['week']} неделя)\n\n"
-        f"📘 Лекций: {data['lectures']}\n"
-        f"📒 Семинаров: {data['seminars']}\n"
-        f"⏰ Учебных часов: {data['total_hours']}\n\n"
-        f"🔥 Самый загруженный день: {day_names.get(data['hardest_day'], '—')}\n"
-        f"😌 Самый лёгкий день: {day_names.get(data['easiest_day'], '—')}\n\n"
-        f"📅 По дням:\n{days_text}"
+        f"📊 Нагрузка недели ({data['week']} неделя)\\n\\n"
+        f"📘 Лекций: {data['lectures']}\\n"
+        f"📒 Семинаров: {data['seminars']}\\n"
+        f"⏰ Учебных часов: {data['total_hours']}\\n\\n"
+        f"🔥 Самый загруженный день: {day_names.get(data['hardest_day'], '—')}\\n"
+        f"😌 Самый лёгкий день: {day_names.get(data['easiest_day'], '—')}\\n\\n"
+        f"📅 По дням:\\n{days_text}"
     )
 
     await update.message.reply_text(text)
