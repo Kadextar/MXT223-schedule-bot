@@ -4,7 +4,7 @@ import datetime
 # ACADEMIC SETTINGS
 # ======================
 
-SEMESTER_START_DATE = datetime.date(2026, 2, 2)  # начало семестра (4 неделя)
+SEMESTER_START_DATE = datetime.date(2026, 1, 12)  # начало семестра (1 неделя)
 
 REMINDER_MINUTES = (30, 15, 5)
 
