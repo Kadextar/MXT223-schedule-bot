@@ -228,6 +228,9 @@ NEW_SCHEDULE = [
 ]
 
 def update_schedule():
+    logger.info("🔧 Initializing database...")
+    init_database()
+    
     logger.info("🗑 Clearing old schedule...")
     existing = get_all_lessons()
     for lesson in existing:
