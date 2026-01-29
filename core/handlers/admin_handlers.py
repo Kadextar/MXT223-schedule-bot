@@ -207,3 +207,24 @@ async def admin_callback_handler(update: Update, context: ContextTypes.DEFAULT_T
             "🗑 Для удаления занятия используйте команду:\n"
             "/delete_lesson"
         )
+
+
+@admin_only
+async def reset_schedule(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Сброс и обновление расписания из фиксированного скрипта"""
+    msg = await update.message.reply_text("⏳ Начинаю обновление расписания...")
+    
+    try:
+        # Импортируем функцию здесь
+        import sys
+        from pathlib import Path
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+        from update_schedule_fixed import update_schedule
+        
+        # Запускаем обновление (синхронно, так как это sqlite)
+        update_schedule()
+        
+        await msg.edit_text("✅ Расписание успешно обновлено по новым данным!")
+    except Exception as e:
+        logger.error(f"Error resetting schedule: {e}")
+        await msg.edit_text(f"❌ Ошибка при обновлении: {e}")
