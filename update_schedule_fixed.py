@@ -5,7 +5,7 @@ from pathlib import Path
 # Добавляем путь к корню проекта, чтобы импортировать модули
 sys.path.insert(0, str(Path(__file__).parent))
 
-from core.database import init_database, add_lesson, get_all_lessons, delete_lesson
+from core.database import init_database, add_lesson, get_all_lessons, delete_lesson, clear_all_lessons, get_connection
 from core.config import CHAT_STRATEGY, ALL_SUBJECT_CHATS
 
 # Настройка логирования
@@ -228,13 +228,21 @@ NEW_SCHEDULE = [
 ]
 
 def update_schedule():
-    logger.info("🔧 Initializing database...")
-    init_database()
+    logger.info("🔧 Recreating database table...")
     
-    logger.info("🗑 Clearing old schedule...")
-    existing = get_all_lessons()
-    for lesson in existing:
-        delete_lesson(lesson["id"])
+    # Drop existing table to recreate with correct schema (BIGINT for chat_id)
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("DROP TABLE IF EXISTS schedule")
+        conn.commit()
+        conn.close()
+        logger.info("✅ Old table dropped")
+    except Exception as e:
+        logger.warning(f"Could not drop table: {e}")
+    
+    # Create table with correct schema
+    init_database()
     
     logger.info("🚀 Adding correct schedule...")
     count = 0
