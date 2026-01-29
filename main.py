@@ -6,6 +6,7 @@ from core.handlers.commands import load
 from core.handlers.commands import start, status, health
 from core.handlers.buttons import handle_buttons
 from core.handlers.admin_handlers import admin_menu, list_lessons, admin_callback_handler, reset_schedule, broadcast, init_students_command
+from core.handlers.init_teachers import init_teachers_command
 from core.handlers.admin_add_lesson import add_lesson_conversation
 from core.handlers.admin_delete_lesson import delete_lesson_conversation
 from core.handlers.user_commands import (
@@ -70,6 +71,7 @@ def main():
     app.add_handler(CommandHandler("reset_schedule", reset_schedule))
     app.add_handler(CommandHandler("broadcast", broadcast))
     app.add_handler(CommandHandler("init_students", init_students_command))
+    app.add_handler(CommandHandler("init_teachers", init_teachers_command))
     
     # admin conversations
     app.add_handler(add_lesson_conversation)
