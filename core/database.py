@@ -78,6 +78,7 @@ def init_database():
     is_postgres = bool(DATABASE_URL)
     
     id_type = "SERIAL PRIMARY KEY" if is_postgres else "INTEGER PRIMARY KEY AUTOINCREMENT"
+    chat_id_type = "BIGINT" if is_postgres else "INTEGER"
     
     sql = f"""
         CREATE TABLE IF NOT EXISTS schedule (
@@ -90,7 +91,7 @@ def init_database():
             week_end INTEGER NOT NULL,
             room TEXT NOT NULL,
             teacher TEXT NOT NULL,
-            chat_id INTEGER NOT NULL
+            chat_id {chat_id_type} NOT NULL
         )
     """
     
