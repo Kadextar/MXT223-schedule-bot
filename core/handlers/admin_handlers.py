@@ -1,0 +1,209 @@
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ContextTypes
+from functools import wraps
+import logging
+
+from core.config import ADMIN_IDS
+from core.database import get_all_lessons
+
+logger = logging.getLogger(__name__)
+
+
+def admin_only(func):
+    """Декоратор для проверки прав администратора"""
+    @wraps(func)
+    async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs):
+        user_id = update.effective_user.id
+        
+        if user_id not in ADMIN_IDS:
+            await update.message.reply_text(
+                "🔒 У вас нет прав для использования этой команды.\n"
+                "Только администраторы могут управлять расписанием."
+            )
+            logger.warning(f"Unauthorized admin access attempt by user {user_id}")
+            return
+        
+        return await func(update, context, *args, **kwargs)
+    
+    return wrapper
+
+
+@admin_only
+async def admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Главное меню администратора"""
+    keyboard = [
+        [
+            InlineKeyboardButton("➕ Добавить занятие", callback_data="admin_add"),
+            InlineKeyboardButton("📝 Редактировать", callback_data="admin_edit"),
+        ],
+        [
+            InlineKeyboardButton("🗑 Удалить занятие", callback_data="admin_delete"),
+            InlineKeyboardButton("📋 Список занятий", callback_data="admin_list"),
+        ],
+        [
+            InlineKeyboardButton("📊 Статистика", callback_data="admin_stats"),
+        ],
+    ]
+    
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await update.message.reply_text(
+        "🔧 **Панель администратора**\n\n"
+        "Выберите действие:",
+        reply_markup=reply_markup,
+        parse_mode="Markdown"
+    )
+
+
+@admin_only
+async def list_lessons(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Список всех занятий в базе данных"""
+    lessons = get_all_lessons()
+    
+    if not lessons:
+        await update.message.reply_text("📭 В базе данных нет занятий")
+        return
+    
+    # Группируем по дням недели
+    days_map = {
+        "monday": "Понедельник",
+        "tuesday": "Вторник",
+        "wednesday": "Среда",
+        "thursday": "Четверг",
+        "friday": "Пятница",
+    }
+    
+    grouped = {}
+    for lesson in lessons:
+        day = lesson["day_of_week"]
+        if day not in grouped:
+            grouped[day] = []
+        grouped[day].append(lesson)
+    
+    # Формируем сообщение
+    lines = ["📋 **Все занятия в расписании:**\n"]
+    
+    for day in ["monday", "tuesday", "wednesday", "thursday", "friday"]:
+        if day not in grouped:
+            continue
+        
+        day_name = days_map.get(day, day)
+        lines.append(f"\n**{day_name}:**")
+        
+        for lesson in sorted(grouped[day], key=lambda x: x["pair"]):
+            lesson_type = "Лекция" if lesson["type"] == "lecture" else "Семинар"
+            weeks = f"{lesson['week_start']}-{lesson['week_end']}"
+            
+            lines.append(
+                f"  • ID {lesson['id']}: {lesson['pair']} пара, {lesson['subject']}\n"
+                f"    {lesson_type}, недели {weeks}, {lesson['room']}"
+            )
+    
+    # Отправляем по частям, если слишком длинное
+    message = "\n".join(lines)
+    
+    if len(message) > 4000:
+        # Разбиваем на части
+        chunks = []
+        current_chunk = []
+        current_length = 0
+        
+        for line in lines:
+            if current_length + len(line) > 3900:
+                chunks.append("\n".join(current_chunk))
+                current_chunk = [line]
+                current_length = len(line)
+            else:
+                current_chunk.append(line)
+                current_length += len(line)
+        
+        if current_chunk:
+            chunks.append("\n".join(current_chunk))
+        
+        for chunk in chunks:
+            await update.message.reply_text(chunk, parse_mode="Markdown")
+    else:
+        await update.message.reply_text(message, parse_mode="Markdown")
+    
+    await update.message.reply_text(
+        f"\n📊 Всего занятий: {len(lessons)}"
+    )
+
+
+async def admin_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик callback-кнопок админ-панели"""
+    query = update.callback_query
+    await query.answer()
+    
+    user_id = update.effective_user.id
+    if user_id not in ADMIN_IDS:
+        await query.edit_message_text("🔒 У вас нет прав администратора")
+        return
+    
+    data = query.data
+    
+    if data == "admin_list":
+        # Показываем список занятий
+        lessons = get_all_lessons()
+        
+        if not lessons:
+            await query.edit_message_text("📭 В базе данных нет занятий")
+            return
+        
+        await query.edit_message_text(
+            f"📋 Всего занятий в БД: {len(lessons)}\n\n"
+            "Используйте команду /list_lessons для подробного списка"
+        )
+    
+    elif data == "admin_stats":
+        # Показываем статистику
+        lessons = get_all_lessons()
+        
+        lectures = sum(1 for l in lessons if l["type"] == "lecture")
+        seminars = sum(1 for l in lessons if l["type"] == "seminar")
+        
+        # Группируем по дням
+        days_count = {}
+        for lesson in lessons:
+            day = lesson["day_of_week"]
+            days_count[day] = days_count.get(day, 0) + 1
+        
+        days_map = {
+            "monday": "Пн",
+            "tuesday": "Вт",
+            "wednesday": "Ср",
+            "thursday": "Чт",
+            "friday": "Пт",
+        }
+        
+        days_text = "\n".join(
+            f"  • {days_map.get(day, day)}: {count}"
+            for day, count in sorted(days_count.items())
+        )
+        
+        await query.edit_message_text(
+            f"📊 **Статистика расписания**\n\n"
+            f"📘 Лекций: {lectures}\n"
+            f"📒 Семинаров: {seminars}\n"
+            f"📚 Всего занятий: {len(lessons)}\n\n"
+            f"По дням:\n{days_text}",
+            parse_mode="Markdown"
+        )
+    
+    elif data == "admin_add":
+        await query.edit_message_text(
+            "➕ Для добавления занятия используйте команду:\n"
+            "/add_lesson"
+        )
+    
+    elif data == "admin_edit":
+        await query.edit_message_text(
+            "📝 Для редактирования занятия используйте команду:\n"
+            "/edit_lesson"
+        )
+    
+    elif data == "admin_delete":
+        await query.edit_message_text(
+            "🗑 Для удаления занятия используйте команду:\n"
+            "/delete_lesson"
+        )

@@ -31,3 +31,12 @@ ALL_SUBJECT_CHATS = (
     CHAT_INTL_BUSINESS,
     CHAT_SCHEDULE_ONLY,
 )
+
+# ======================
+# ADMIN SETTINGS
+# ======================
+
+# Telegram ID администраторов бота
+ADMIN_IDS = [
+    1214641616,  # Azamat
+]

@@ -1,6 +1,6 @@
 # core/schedule_service.py
 
-from core.schedule_data import SCHEDULE
+from core.database import get_lessons_by_day_and_week
 from core.config import PAIR_START_TIMES, SEMESTER_START_DATE
 from core.time_utils import today_uz
 import datetime
@@ -16,12 +16,11 @@ def get_today_schedule():
     week = get_week_number(today)
 
     weekday = today.strftime("%A").lower()
-    lessons = SCHEDULE.get(weekday, [])
-
-    return [
-        lesson for lesson in lessons
-        if week in lesson["weeks"]
-    ]
+    
+    # Получаем занятия из БД
+    lessons = get_lessons_by_day_and_week(weekday, week)
+    
+    return lessons
 
 
 def format_today_schedule():
@@ -56,8 +55,9 @@ def format_tomorrow_schedule():
     week = get_week_number(tomorrow)
 
     weekday = tomorrow.strftime("%A").lower()
-    lessons = SCHEDULE.get(weekday, [])
-    lessons = [l for l in lessons if week in l["weeks"]]
+    
+    # Получаем занятия из БД
+    lessons = get_lessons_by_day_and_week(weekday, week)
 
     if not lessons:
         return "🌙 Завтра занятий нет 🎉"

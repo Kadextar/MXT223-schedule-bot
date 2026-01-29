@@ -1,10 +1,20 @@
 import os
 import logging
-from telegram.ext import Application, CommandHandler, MessageHandler, filters
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters
 
 from core.handlers.commands import load
 from core.handlers.commands import start, status, health
 from core.handlers.buttons import handle_buttons
+from core.handlers.admin_handlers import admin_menu, list_lessons, admin_callback_handler
+from core.handlers.admin_add_lesson import add_lesson_conversation
+from core.handlers.admin_delete_lesson import delete_lesson_conversation
+from core.handlers.user_commands import (
+    today_schedule,
+    tomorrow_schedule,
+    next_lesson,
+    week_schedule,
+    week_navigation_callback,
+)
 from core.reminders import schedule_today_reminders, rebuild_daily_reminders
 from core.auto_messages import send_morning_schedule, send_evening_schedule
 from core.time_utils import today_uz, uz_time_to_utc
@@ -28,6 +38,24 @@ def main():
     app.add_handler(CommandHandler("status", status))
     app.add_handler(CommandHandler("health", health))
     app.add_handler(CommandHandler("load", load))
+
+    # user commands
+    app.add_handler(CommandHandler("today", today_schedule))
+    app.add_handler(CommandHandler("tomorrow", tomorrow_schedule))
+    app.add_handler(CommandHandler("next", next_lesson))
+    app.add_handler(CommandHandler("week", week_schedule))
+
+    # admin commands
+    app.add_handler(CommandHandler("admin", admin_menu))
+    app.add_handler(CommandHandler("list_lessons", list_lessons))
+    
+    # admin conversations
+    app.add_handler(add_lesson_conversation)
+    app.add_handler(delete_lesson_conversation)
+    
+    # callback handlers
+    app.add_handler(CallbackQueryHandler(admin_callback_handler, pattern="^admin_"))
+    app.add_handler(CallbackQueryHandler(week_navigation_callback, pattern="^week_"))
 
     # buttons
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_buttons))

@@ -4,4 +4,3 @@ pytz
 
 fastapi
 uvicorn
-pydantic

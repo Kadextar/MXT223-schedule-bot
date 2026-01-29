@@ -1,5 +1,5 @@
 import datetime
-from core.schedule_data import SCHEDULE
+from core.database import get_lessons_by_day_and_week
 from core.schedule_service import get_week_number
 from core.time_utils import today_uz
 
@@ -13,16 +13,19 @@ def analyze_week_load():
     seminars = 0
     total_pairs = 0
 
-    for day, lessons in SCHEDULE.items():
-        pairs_today = [
-            l for l in lessons if week in l["weeks"]
-        ]
-        hours = len(pairs_today) * 2
+    # Дни недели
+    weekdays = ["monday", "tuesday", "wednesday", "thursday", "friday"]
+
+    for day in weekdays:
+        # Получаем занятия из БД для каждого дня
+        lessons = get_lessons_by_day_and_week(day, week)
+        
+        hours = len(lessons) * 2
         day_load[day] = hours
 
-        for l in pairs_today:
+        for lesson in lessons:
             total_pairs += 1
-            if l["type"] == "lecture":
+            if lesson["type"] == "lecture":
                 lectures += 1
             else:
                 seminars += 1

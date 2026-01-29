@@ -4,8 +4,7 @@ import time
 import datetime
 from core.time_utils import UZ_TZ, today_uz
 
-from core.analytics.week_load import analyze_week_load
-from core.time_utils import today_uz
+from core.analytics import analyze_week_load
 from core.config import SEMESTER_START_DATE
 
 
@@ -18,8 +17,15 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Привет 👋\n"
         "Я бот расписания группы МХТ-223.\n\n"
-        "Выбери действие ⬇️",
+        "📌 **Доступные команды:**\n"
+        "/today — Расписание на сегодня\n"
+        "/tomorrow — Расписание на завтра\n"
+        "/week — Расписание на неделю\n"
+        "/next — Следующая пара\n"
+        "/load — Анализ нагрузки\n\n"
+        "Или используйте кнопки ⬇️",
         reply_markup=MAIN_KEYBOARD,
+        parse_mode="Markdown",
     )
 
 
