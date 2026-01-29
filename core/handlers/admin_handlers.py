@@ -207,6 +207,28 @@ async def admin_callback_handler(update: Update, context: ContextTypes.DEFAULT_T
             "🗑 Для удаления занятия используйте команду:\n"
             "/delete_lesson"
         )
+    
+    elif data == "broadcast_delete":
+        from core.database import deactivate_all_announcements
+        deactivate_all_announcements()
+        await query.edit_message_text(
+            "✅ **Объявление удалено**\n"
+            "Оно больше не показывается на сайте."
+        )
+        
+    elif data == "broadcast_help":
+        await query.edit_message_text(
+            "📢 **Управление объявлениями**\n\n"
+            "1. **Создать/Заменить:**\n"
+            "`/broadcast Текст вашего объявления`\n"
+            "_(Старое объявление автоматически удалится)_\n\n"
+            "2. **Удалить (Снять):**\n"
+            "Нажмите «🗑 Удалить» в меню `/broadcast`\n\n"
+            "3. **Редактировать:**\n"
+            "Просто отправьте `/broadcast Новый исправленный текст`\n\n"
+            "Объявления показываются на сайте сверху красной плашкой.",
+            parse_mode="Markdown"
+        )
 
 
 @admin_only
@@ -232,18 +254,33 @@ async def reset_schedule(update: Update, context: ContextTypes.DEFAULT_TYPE):
 @admin_only
 async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Отправить объявление всем пользователям и сохранить в БД"""
-    from core.database import add_announcement
+    from core.database import add_announcement, get_active_announcement
     
     if not context.args:
+        # Show status and management menu
+        active = get_active_announcement()
+        
+        if active:
+            status_text = (
+                f"📢 **Сейчас активно объявление:**\n\n"
+                f"{active['message']}\n\n"
+                f"🕒 Создано: {active['created_at']}"
+            )
+            keyboard = [
+                [InlineKeyboardButton("🗑 Удалить (Снять)", callback_data="broadcast_delete")],
+                [InlineKeyboardButton("✏️ Инструкция по редактированию", callback_data="broadcast_help")]
+            ]
+        else:
+            status_text = "🔕 **Нет активных объявлений**"
+            keyboard = [[InlineKeyboardButton("➕ Создать", callback_data="broadcast_help")]]
+            
+        reply_markup = InlineKeyboardMarkup(keyboard)
         await update.message.reply_text(
-            "📣 *Broadcast - Рассылка объявлений*\n\n"
-            "Использование:\n"
-            "`/broadcast <сообщение>`\n\n"
-            "Пример:\n"
-            "`/broadcast Завтра пары отменяются!`\n\n"
-            "Сообщение будет:\n"
-            "• Отправлено всем пользователям бота\n"
-            "• Показано на сайте как объявление",
+            f"{status_text}\n\n"
+            "───────────────\n"
+            "Чтобы создать или заменить объявление, просто введите команду с текстом:\n"
+            "`/broadcast Ваше сообщение`",
+            reply_markup=reply_markup,
             parse_mode="Markdown"
         )
         return
@@ -263,8 +300,8 @@ async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Для простоты пока просто подтверждаем админу
     await update.message.reply_text(
         f"✅ *Объявление опубликовано!*\n\n"
-        f"📣 {message}\n\n"
-        f"Объявление сохранено в БД и будет показано на сайте.",
+        f"📢 {message}\n\n"
+        f"Оно появилось на сайте.",
         parse_mode="Markdown"
     )
 

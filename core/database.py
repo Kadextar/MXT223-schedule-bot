@@ -338,6 +338,20 @@ def deactivate_all_announcements():
     """Деактивирует все объявления"""
     execute_query("UPDATE announcements SET is_active = FALSE", commit=True)
 
+def update_active_announcement(new_message: str) -> bool:
+    """Обновляет текст активного объявления"""
+    sql = "UPDATE announcements SET message = ? WHERE is_active = TRUE"
+    conn = get_connection()
+    cursor = conn.cursor()
+    is_postgres = bool(DATABASE_URL)
+    
+    real_sql = sql.replace('?', '%s') if is_postgres else sql
+    cursor.execute(real_sql, (new_message,))
+    updated = cursor.rowcount > 0
+    conn.commit()
+    conn.close()
+    return updated
+
 # --- Teacher Rating Functions ---
 
 import hashlib
