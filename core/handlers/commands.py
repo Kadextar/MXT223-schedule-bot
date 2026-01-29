@@ -29,19 +29,20 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     await update.message.reply_text(
-        "👋 **Привет!**\\n\\n"
-        "Я бот расписания группы **МХТ-223**.\\n\\n"
-        "🌐 **Сайт:** [mxt223-web-production.up.railway.app](https://mxt223-web-production.up.railway.app)\\n\\n"
-        "📌 **Основные команды:**\\n"
-        "/today — Расписание на сегодня\\n"
-        "/tomorrow — Расписание на завтра\\n"
-        "/week — Расписание на неделю\\n"
-        "/next — Следующая пара\\n"
-        "/load — Анализ нагрузки\\n\\n"
+        "👋 *Привет!*\n\n"
+        "Я бот расписания группы *МХТ-223*\n\n"
+        "📌 *Основные команды:*\n"
+        "/today — Расписание на сегодня\n"
+        "/tomorrow — Расписание на завтра\n"
+        "/week — Расписание на неделю\n"
+        "/next — Следующая пара\n"
+        "/exams — Расписание экзаменов\n"
+        "/load — Анализ нагрузки\n\n"
         "Используйте кнопки ниже для быстрого доступа ⬇️",
         reply_markup=reply_markup,
         parse_mode="Markdown",
     )
+
 
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -60,11 +61,12 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     now_uz = datetime.datetime.now(UZ_TZ).strftime("%H:%M:%S")
 
     await update.message.reply_text(
-        f"📅 Сегодня: {today}\\n"
-        f"🕒 Время (UZ): {now_uz}\\n"
-        f"📚 Семестр начался: {'✅' if today >= SEMESTER_START_DATE else '❌'}\\n"
+        f"📅 Сегодня: {today}\n"
+        f"🕒 Время (UZ): {now_uz}\n"
+        f"📚 Семестр начался: {'✅' if today >= SEMESTER_START_DATE else '❌'}\n"
         f"⏰ Активных задач: {len(context.application.job_queue.jobs())}"
     )
+
 
 
 async def health(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -72,9 +74,9 @@ async def health(update: Update, context: ContextTypes.DEFAULT_TYPE):
     today = today_uz()
 
     await update.message.reply_text(
-        f"📅 Сегодня: {today}\\n"
-        f"🕒 Время (UZ): {now_uz}\\n"
-        f"📚 Семестр начался: {'✅' if today >= SEMESTER_START_DATE else '❌'}\\n"
+        f"📅 Сегодня: {today}\n"
+        f"🕒 Время (UZ): {now_uz}\n"
+        f"📚 Семестр начался: {'✅' if today >= SEMESTER_START_DATE else '❌'}\n"
         f"⏰ Активных задач: {len(context.application.job_queue.jobs())}"
     )
 
