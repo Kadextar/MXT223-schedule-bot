@@ -30,10 +30,10 @@ def format_today_schedule():
         return "📅 Сегодня занятий нет 🎉"
 
     lines = ["📅 Расписание на сегодня:\n"]
-    lessons = sorted(lessons, key=lambda x: x["pair"])
+    lessons = sorted(lessons, key=lambda x: x["pair_number"])
 
     for lesson in lessons:
-        pair = lesson["pair"]
+        pair = lesson["pair_number"]
         time = PAIR_START_TIMES.get(pair)
         time_str = time.strftime("%H:%M") if time else "—"
         lesson_type = "Лекция" if lesson["type"] == "lecture" else "Семинар"

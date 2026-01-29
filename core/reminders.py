@@ -68,7 +68,7 @@ def schedule_today_reminders(app: Application):
             job.schedule_removal()
 
     for lesson in get_today_schedule():
-        pair_time = PAIR_START_TIMES.get(lesson["pair"])
+        pair_time = PAIR_START_TIMES.get(lesson["pair_number"])
         if not pair_time:
             continue
 
